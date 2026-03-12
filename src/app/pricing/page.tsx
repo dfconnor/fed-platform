@@ -117,7 +117,7 @@ const fedAdvantages = [
     icon: Zap,
     title: "5-Minute Setup",
     description:
-      "Upload your menu, set your brand colors, get a link. Start taking orders today.",
+      "Upload your menu, set your brand colors, get a link. No contracts, no setup fees, cancel anytime.",
   },
   {
     icon: Globe,
@@ -127,9 +127,9 @@ const fedAdvantages = [
   },
   {
     icon: Palette,
-    title: "Your Brand, Not Ours",
+    title: "You Own Your Data",
     description:
-      "Your colors, your logo, your menu. Fed stays in the background.",
+      "Customer emails, phone numbers, order history — it's all yours. Not locked in our platform.",
   },
   {
     icon: QrCode,

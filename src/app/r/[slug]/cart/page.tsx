@@ -38,7 +38,7 @@ interface CartItem {
 }
 
 type OrderType = "pickup" | "dinein" | "delivery";
-type PaymentMethod = "card" | "apple_pay" | "google_pay" | "paypal";
+type PaymentMethod = "card" | "apple_pay" | "google_pay" | "paypal" | "venmo";
 
 const TAX_RATE = 0.0875;
 const SERVICE_FEE = 0.49; // Fed's ultra-low platform fee — competitors charge $1.99-$3.99
@@ -61,10 +61,11 @@ const paymentMethods: {
   label: string;
   icon: typeof CreditCard;
 }[] = [
-  { value: "card", label: "Credit Card", icon: CreditCard },
   { value: "apple_pay", label: "Apple Pay", icon: Apple },
   { value: "google_pay", label: "Google Pay", icon: Wallet },
+  { value: "card", label: "Credit Card", icon: CreditCard },
   { value: "paypal", label: "PayPal", icon: CreditCard },
+  { value: "venmo", label: "Venmo", icon: Wallet },
 ];
 
 /* ================================================================
