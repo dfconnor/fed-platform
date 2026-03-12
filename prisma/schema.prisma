@@ -1,0 +1,630 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth ────────────────────────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Users ───────────────────────────────────────────────────────────────
+
+model User {
+  id              String    @id @default(cuid())
+  name            String?
+  email           String?   @unique
+  emailVerified   DateTime?
+  image           String?
+  phone           String?
+  bio             String?   @db.Text
+  idVerified      Boolean   @default(false)
+  backgroundCheck Boolean   @default(false)
+  hostTier        HostTier  @default(STANDARD)
+  stripeAccountId String?
+  stripeCustomerId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  listings      RVListing[]
+  bookingsAsGuest  Booking[]  @relation("GuestBookings")
+  bookingsAsHost   Booking[]  @relation("HostBookings")
+  reviewsWritten   Review[]   @relation("ReviewAuthor")
+  reviewsReceived  Review[]   @relation("ReviewSubject")
+  sentMessages     Message[]  @relation("MessageSender")
+  receivedMessages Message[]  @relation("MessageReceiver")
+  favorites        Favorite[]
+  payouts          Payout[]
+  identityVerifications IdentityVerification[]
+  claimsFiled      DamageClaim[]  @relation("ClaimsFiled")
+}
+
+enum HostTier {
+  STANDARD
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+}
+
+// ─── RV Listings ─────────────────────────────────────────────────────────
+
+model RVListing {
+  id              String       @id @default(cuid())
+  hostId          String
+  title           String
+  description     String       @db.Text
+  rvType          RVType
+  year            Int
+  make            String
+  model           String
+  length          Int          // feet
+  sleeps          Int
+  seatbelts       Int          @default(0)
+
+  // Pricing
+  nightlyRate     Int          // cents
+  cleaningFee     Int          @default(0) // cents
+  securityDeposit Int          @default(0) // cents
+  weeklyDiscount  Int          @default(0) // percentage
+  monthlyDiscount Int          @default(0) // percentage
+  minNights       Int          @default(1)
+  maxNights       Int          @default(30)
+
+  // Location
+  address         String
+  city            String
+  state           String
+  zipCode         String
+  country         String       @default("US")
+  latitude        Float
+  longitude       Float
+
+  // Features
+  amenities       String[]     // ["kitchen", "ac", "generator", "solar", "shower", "toilet", ...]
+  features        String[]     // ["pet_friendly", "festival_ready", "off_grid", "tow_hitch", ...]
+  rules           String?      @db.Text
+
+  // Vehicle details
+  mileage         Int?
+  fuelType        FuelType     @default(GAS)
+  towable         Boolean      @default(false)
+  deliveryAvailable Boolean    @default(false)
+  deliveryFee     Int          @default(0) // cents per mile
+  deliveryRadius  Int          @default(0) // miles
+
+  // Status
+  status          ListingStatus @default(DRAFT)
+  instantBook     Boolean       @default(false)
+  verified        Boolean       @default(false)
+
+  // Stats
+  averageRating   Float         @default(0)
+  totalReviews    Int           @default(0)
+  totalTrips      Int           @default(0)
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  host            User          @relation(fields: [hostId], references: [id])
+  images          ListingImage[]
+  bookings        Booking[]
+  reviews         Review[]
+  availability    Availability[]
+  favorites       Favorite[]
+  addOns          ListingAddOn[]
+
+  @@index([city, state])
+  @@index([latitude, longitude])
+  @@index([rvType])
+  @@index([status])
+  @@index([nightlyRate])
+}
+
+model ListingImage {
+  id        String    @id @default(cuid())
+  listingId String
+  url       String
+  caption   String?
+  order     Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  listing   RVListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId])
+}
+
+model ListingAddOn {
+  id          String    @id @default(cuid())
+  listingId   String
+  name        String
+  description String?
+  price       Int       // cents per trip
+  perNight    Boolean   @default(false)
+
+  listing     RVListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+}
+
+model Availability {
+  id        String    @id @default(cuid())
+  listingId String
+  date      DateTime  @db.Date
+  available Boolean   @default(true)
+  price     Int?      // custom price override in cents
+
+  listing   RVListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, date])
+  @@index([listingId, date])
+}
+
+enum RVType {
+  CLASS_A
+  CLASS_B
+  CLASS_C
+  TRAVEL_TRAILER
+  FIFTH_WHEEL
+  POP_UP
+  TRUCK_CAMPER
+  TOY_HAULER
+  CAMPERVAN
+  TEARDROP
+  AIRSTREAM
+  OTHER
+}
+
+enum FuelType {
+  GAS
+  DIESEL
+  ELECTRIC
+  HYBRID
+  NA
+}
+
+enum ListingStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+// ─── Bookings ────────────────────────────────────────────────────────────
+
+model Booking {
+  id                 String         @id @default(cuid())
+  listingId          String
+  guestId            String
+  hostId             String
+
+  // Dates
+  startDate          DateTime       @db.Date
+  endDate            DateTime       @db.Date
+  nights             Int
+
+  // Pricing breakdown (all in cents)
+  nightlyTotal       Int
+  cleaningFee        Int            @default(0)
+  deliveryFee        Int            @default(0)
+  addOnsTotal        Int            @default(0)
+  insuranceFee       Int            @default(0)
+  platformFeeGuest   Int            @default(0)  // 5% guest fee
+  platformFeeHost    Int            @default(0)  // 5% host fee
+  discount           Int            @default(0)
+  subtotal           Int
+  total              Int
+  securityDeposit    Int            @default(0)
+
+  // Insurance
+  insuranceTier      InsuranceTier  @default(ESSENTIAL)
+  insuranceProvider  String?
+
+  // Payment
+  stripePaymentId    String?
+  stripeTransferId   String?
+  paymentMethod      PaymentMethod  @default(CARD)
+  paidAt             DateTime?
+
+  // Status
+  status             BookingStatus  @default(PENDING)
+  cancellationPolicy CancellationPolicy @default(MODERATE)
+  cancelledBy        String?
+  cancelledAt        DateTime?
+  cancellationReason String?
+
+  // Trip details
+  guestCount         Int            @default(1)
+  specialRequests    String?        @db.Text
+  deliveryAddress    String?
+  deliveryLat        Float?
+  deliveryLng        Float?
+
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  listing            RVListing      @relation(fields: [listingId], references: [id])
+  guest              User           @relation("GuestBookings", fields: [guestId], references: [id])
+  host               User           @relation("HostBookings", fields: [hostId], references: [id])
+  review             Review?
+  messages           Message[]
+  addOns             BookingAddOn[]
+  conditionReports   ConditionReport[]
+  payout             Payout?
+  rentalAgreement    RentalAgreement?
+  damageClaims       DamageClaim[]
+
+  @@index([guestId])
+  @@index([hostId])
+  @@index([listingId])
+  @@index([status])
+  @@index([startDate, endDate])
+}
+
+model BookingAddOn {
+  id        String  @id @default(cuid())
+  bookingId String
+  name      String
+  price     Int     // cents
+  quantity  Int     @default(1)
+
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model ConditionReport {
+  id          String    @id @default(cuid())
+  bookingId   String
+  type        ReportType
+  photos      String[]
+  notes       String?   @db.Text
+  mileage     Int?
+  fuelLevel   Int?      // percentage
+  reportedBy  String
+  createdAt   DateTime  @default(now())
+
+  booking     Booking   @relation(fields: [bookingId], references: [id])
+}
+
+enum InsuranceTier {
+  BASIC
+  ESSENTIAL
+  PREMIUM
+}
+
+enum PaymentMethod {
+  CARD
+  AFFIRM
+  KLARNA
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum CancellationPolicy {
+  FLEXIBLE
+  MODERATE
+  STRICT
+}
+
+enum ReportType {
+  DEPARTURE
+  RETURN
+}
+
+// ─── Identity Verification ──────────────────────────────────────────────
+
+model IdentityVerification {
+  id                     String              @id @default(cuid())
+  userId                 String
+  status                 VerificationStatus  @default(PENDING)
+
+  // ID document
+  idType                 String?             // "drivers_license", "passport", "state_id"
+  idFrontPhoto           String?
+  idBackPhoto            String?
+  selfiePhoto            String?
+
+  // Driver info
+  licenseNumber          String?
+  licenseState           String?
+  licenseExpiry          DateTime?
+  dateOfBirth            DateTime?           @db.Date
+
+  // Driving record
+  drivingRecordStatus    String?             // "clean", "minor_violations", "major_violations", "disqualified"
+  yearsLicensed          Int?
+
+  // Provider reference (Persona/Onfido)
+  providerName           String?             // "persona", "onfido", "manual"
+  providerRef            String?
+  providerResult         Json?
+
+  // Background check
+  backgroundCheckStatus  VerificationStatus  @default(PENDING)
+  backgroundCheckRef     String?
+  backgroundCheckDate    DateTime?
+
+  verifiedAt             DateTime?
+  expiresAt              DateTime?
+  rejectionReason        String?
+
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  user                   User                @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+}
+
+enum VerificationStatus {
+  PENDING
+  PROCESSING
+  VERIFIED
+  FAILED
+  EXPIRED
+}
+
+// ─── Rental Agreements ──────────────────────────────────────────────────
+
+model RentalAgreement {
+  id                     String            @id @default(cuid())
+  bookingId              String            @unique
+
+  // Agreement content
+  version                String            @default("1.0")
+  termsContent           String            @db.Text
+
+  // Booking-specific terms
+  mileageLimit           Int?
+  generatorHoursLimit    Int?
+  geographicRestrictions String?           @db.Text
+  petPolicy              String?           // "none", "allowed_with_deposit", "allowed"
+  smokingPolicy          String            @default("no_smoking")
+  towingAllowed          Boolean           @default(false)
+
+  // Guest signature
+  guestSignedAt          DateTime?
+  guestSignature         String?           @db.Text
+  guestSignatureType     String?           // "drawn" or "typed"
+  guestIpAddress         String?
+  guestUserAgent         String?
+
+  // Host signature
+  hostSignedAt           DateTime?
+  hostSignature          String?           @db.Text
+  hostSignatureType      String?
+  hostIpAddress          String?
+  hostUserAgent          String?
+
+  status                 AgreementStatus   @default(DRAFT)
+
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+
+  booking                Booking           @relation(fields: [bookingId], references: [id])
+
+  @@index([status])
+}
+
+enum AgreementStatus {
+  DRAFT
+  PENDING_GUEST
+  PENDING_HOST
+  SIGNED
+  VOIDED
+}
+
+// ─── Damage Claims ──────────────────────────────────────────────────────
+
+model DamageClaim {
+  id                   String        @id @default(cuid())
+  bookingId            String
+  filedById            String
+
+  // Claim details
+  description          String        @db.Text
+  photos               String[]
+  requestedAmount      Int           // cents
+  approvedAmount       Int?          // cents
+
+  // Categorization
+  damageType           String        // "exterior", "interior", "mechanical", "cleaning", "other"
+
+  status               ClaimStatus   @default(DRAFT)
+
+  // Renter response
+  renterResponse       String?       @db.Text
+  renterResponseAt     DateTime?
+
+  // Resolution
+  resolvedAt           DateTime?
+  resolvedBy           String?
+  resolutionNotes      String?       @db.Text
+
+  // Stripe
+  depositCaptureAmount Int?
+  stripeCaptureId      String?
+
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  booking              Booking       @relation(fields: [bookingId], references: [id])
+  filedBy              User          @relation("ClaimsFiled", fields: [filedById], references: [id])
+  dispute              DisputeResolution?
+
+  @@index([bookingId])
+  @@index([status])
+  @@index([filedById])
+}
+
+enum ClaimStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  ACCEPTED
+  PARTIALLY_ACCEPTED
+  REJECTED
+  APPEALED
+  RESOLVED
+}
+
+// ─── Dispute Resolution ─────────────────────────────────────────────────
+
+model DisputeResolution {
+  id              String          @id @default(cuid())
+  claimId         String          @unique
+
+  messages        Json[]
+  mediatorNotes   String?         @db.Text
+  mediatorId      String?
+
+  outcome         DisputeOutcome  @default(PENDING)
+  outcomeNotes    String?         @db.Text
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  claim           DamageClaim     @relation(fields: [claimId], references: [id])
+
+  @@index([outcome])
+}
+
+enum DisputeOutcome {
+  PENDING
+  HOST_FAVORED
+  GUEST_FAVORED
+  SPLIT
+  DISMISSED
+}
+
+// ─── Payments ────────────────────────────────────────────────────────────
+
+model Payout {
+  id              String       @id @default(cuid())
+  hostId          String
+  bookingId       String       @unique
+  amount          Int          // cents
+  stripeTransferId String?
+  status          PayoutStatus @default(PENDING)
+  paidAt          DateTime?
+  createdAt       DateTime     @default(now())
+
+  host            User         @relation(fields: [hostId], references: [id])
+  booking         Booking      @relation(fields: [bookingId], references: [id])
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+}
+
+// ─── Reviews ─────────────────────────────────────────────────────────────
+
+model Review {
+  id          String    @id @default(cuid())
+  bookingId   String    @unique
+  listingId   String
+  authorId    String
+  subjectId   String
+  type        ReviewType
+
+  rating      Int       // 1-5
+  cleanliness Int?      // 1-5
+  accuracy    Int?      // 1-5
+  communication Int?    // 1-5
+  value       Int?      // 1-5
+  comment     String    @db.Text
+
+  hostResponse String?  @db.Text
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  booking     Booking   @relation(fields: [bookingId], references: [id])
+  listing     RVListing @relation(fields: [listingId], references: [id])
+  author      User      @relation("ReviewAuthor", fields: [authorId], references: [id])
+  subject     User      @relation("ReviewSubject", fields: [subjectId], references: [id])
+}
+
+enum ReviewType {
+  GUEST_TO_HOST
+  HOST_TO_GUEST
+}
+
+// ─── Messaging ───────────────────────────────────────────────────────────
+
+model Message {
+  id          String    @id @default(cuid())
+  senderId    String
+  receiverId  String
+  bookingId   String?
+  content     String    @db.Text
+  read        Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  sender      User      @relation("MessageSender", fields: [senderId], references: [id])
+  receiver    User      @relation("MessageReceiver", fields: [receiverId], references: [id])
+  booking     Booking?  @relation(fields: [bookingId], references: [id])
+
+  @@index([senderId, receiverId])
+  @@index([bookingId])
+}
+
+// ─── Favorites ───────────────────────────────────────────────────────────
+
+model Favorite {
+  id        String    @id @default(cuid())
+  userId    String
+  listingId String
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing   RVListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, listingId])
+}

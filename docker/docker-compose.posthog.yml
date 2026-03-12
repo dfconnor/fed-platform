@@ -1,0 +1,92 @@
+# PostHog self-hosted analytics
+# Run with: docker compose -f docker/docker-compose.posthog.yml up -d
+# Access at: http://localhost:8000
+#
+# PostHog provides:
+# - Product analytics (events, funnels, user journeys)
+# - Session replay
+# - Feature flags & A/B testing
+# - Cohort analysis
+# - SQL querying
+# - AI-powered insights
+#
+# Free & open source. No event limits when self-hosted.
+# Docs: https://posthog.com/docs/self-host
+
+version: '3.8'
+
+services:
+  posthog-db:
+    image: postgres:16-alpine
+    container_name: posthog-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: posthog
+      POSTGRES_PASSWORD: posthog
+      POSTGRES_DB: posthog
+    volumes:
+      - posthog-db-data:/var/lib/postgresql/data
+
+  posthog-redis:
+    image: redis:7-alpine
+    container_name: posthog-redis
+    restart: unless-stopped
+
+  posthog-clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    container_name: posthog-clickhouse
+    restart: unless-stopped
+    volumes:
+      - posthog-ch-data:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
+  posthog-kafka:
+    image: bitnami/kafka:3.7
+    container_name: posthog-kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://posthog-kafka:9092
+      ALLOW_PLAINTEXT_LISTENER: 'yes'
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    volumes:
+      - posthog-kafka-data:/bitnami/kafka
+
+  posthog-zookeeper:
+    image: bitnami/zookeeper:3.9
+    container_name: posthog-zookeeper
+    restart: unless-stopped
+    environment:
+      ALLOW_ANONYMOUS_LOGIN: 'yes'
+    volumes:
+      - posthog-zk-data:/bitnami/zookeeper
+
+  posthog:
+    image: posthog/posthog:latest
+    container_name: posthog
+    restart: unless-stopped
+    depends_on:
+      - posthog-db
+      - posthog-redis
+      - posthog-clickhouse
+      - posthog-kafka
+      - posthog-zookeeper
+    environment:
+      DATABASE_URL: postgres://posthog:posthog@posthog-db:5432/posthog
+      REDIS_URL: redis://posthog-redis:6379
+      CLICKHOUSE_HOST: posthog-clickhouse
+      KAFKA_HOSTS: posthog-kafka:9092
+      SECRET_KEY: 'change-this-to-a-random-string-in-production'
+      SITE_URL: http://localhost:8000
+      IS_BEHIND_PROXY: 'false'
+    ports:
+      - '8000:8000'
+
+volumes:
+  posthog-db-data:
+  posthog-ch-data:
+  posthog-kafka-data:
+  posthog-zk-data:
