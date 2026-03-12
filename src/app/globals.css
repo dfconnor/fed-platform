@@ -1,0 +1,265 @@
+@import "tailwindcss";
+
+/*
+ * Fed Restaurant Platform - Design System
+ *
+ * CSS custom properties for a customizable, premium restaurant theme.
+ * Restaurants can override these variables to match their brand.
+ * Uses HSL for easy color manipulation.
+ */
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 20 14% 4%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 20 14% 4%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 20 14% 4%;
+
+  --primary: 24 95% 53%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 20 5% 96%;
+  --secondary-foreground: 20 6% 10%;
+
+  --muted: 20 5% 96%;
+  --muted-foreground: 20 4% 46%;
+
+  --accent: 20 5% 96%;
+  --accent-foreground: 20 6% 10%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+
+  --success: 142 71% 45%;
+  --success-foreground: 0 0% 100%;
+
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 100%;
+
+  --border: 20 6% 90%;
+  --input: 20 6% 90%;
+  --ring: 24 95% 53%;
+
+  --radius: 0.625rem;
+
+  --font-sans: var(--font-inter);
+}
+
+.dark {
+  --background: 20 14% 4%;
+  --foreground: 0 0% 95%;
+
+  --card: 20 14% 7%;
+  --card-foreground: 0 0% 95%;
+
+  --popover: 20 14% 7%;
+  --popover-foreground: 0 0% 95%;
+
+  --primary: 24 95% 53%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 20 5% 15%;
+  --secondary-foreground: 0 0% 95%;
+
+  --muted: 20 5% 15%;
+  --muted-foreground: 20 4% 64%;
+
+  --accent: 20 5% 15%;
+  --accent-foreground: 0 0% 95%;
+
+  --destructive: 0 63% 31%;
+  --destructive-foreground: 0 0% 95%;
+
+  --success: 142 71% 29%;
+  --success-foreground: 0 0% 95%;
+
+  --warning: 38 92% 40%;
+  --warning-foreground: 0 0% 95%;
+
+  --border: 20 5% 18%;
+  --input: 20 5% 18%;
+  --ring: 24 95% 53%;
+}
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: var(--font-sans);
+
+  /* Animations */
+  --animate-slide-up: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-slide-down: slide-down 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-fade-in: fade-in 0.3s ease-out;
+  --animate-scale-in: scale-in 0.2s ease-out;
+  --animate-pulse-soft: pulse-soft 2s ease-in-out infinite;
+  --animate-bounce-in: bounce-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ===== Base ===== */
+* {
+  border-color: hsl(var(--border));
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===== Custom Scrollbar ===== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ===== Animation Keyframes ===== */
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes bounce-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% { transform: scale(1.05); }
+  70% { transform: scale(0.95); }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes progress-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+/* ===== Utility Classes ===== */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 25%,
+    hsl(var(--border)) 50%,
+    hsl(var(--muted)) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.glass {
+  background: hsla(var(--background) / 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
