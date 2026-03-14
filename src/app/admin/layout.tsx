@@ -17,6 +17,7 @@ import {
   Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AdminProvider, useAdminContext } from "@/lib/demo-context";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
@@ -42,9 +43,18 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
+  return (
+    <AdminProvider>
+      <AdminLayoutInner>{children}</AdminLayoutInner>
+    </AdminProvider>
+  );
+}
+
+function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { platformName } = useAdminContext();
 
   const isActive = (href: string) => {
     if (href === "/admin") return pathname === "/admin";
@@ -211,7 +221,7 @@ export default function AdminLayout({
                 Platform Administration
               </h2>
               <p className="text-xs text-slate-400 hidden sm:block">
-                Fed Restaurant Platform
+                {platformName} Restaurant Platform
               </p>
             </div>
           </div>
@@ -242,7 +252,7 @@ export default function AdminLayout({
                   <Avatar className="h-8 w-8">
                     <AvatarImage src="/avatars/admin.jpg" alt="Admin" />
                     <AvatarFallback className="bg-purple-600 text-white text-xs">
-                      AD
+                      AU
                     </AvatarFallback>
                   </Avatar>
                   <span className="hidden text-sm font-medium sm:block">
@@ -277,7 +287,7 @@ export default function AdminLayout({
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto bg-slate-950 p-4 lg:p-6">
+        <main className="flex-1 overflow-y-auto bg-slate-950 p-4 lg:p-6 pb-16 lg:pb-0">
           {children}
         </main>
 

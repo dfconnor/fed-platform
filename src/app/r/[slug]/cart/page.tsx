@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -24,18 +24,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils";
+import { useCartStore } from "@/lib/store";
 
 /* ================================================================
    TYPES & HELPERS
    ================================================================ */
-
-interface CartItem {
-  menuItemId: string;
-  name: string;
-  price: number;
-  quantity: number;
-  notes?: string;
-}
 
 type OrderType = "pickup" | "dinein" | "delivery";
 type PaymentMethod = "card" | "apple_pay" | "google_pay" | "paypal" | "venmo";
@@ -75,9 +68,15 @@ const paymentMethods: {
 export default function CartPage() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
-  const cartKey = `fed-cart-${slug}`;
 
-  const [items, setItems] = useState<CartItem[]>([]);
+  const items = useCartStore((s) => s.items);
+  const storeRemoveItem = useCartStore((s) => s.removeItem);
+  const storeUpdateQuantity = useCartStore((s) => s.updateQuantity);
+  const storeUpdateNotes = useCartStore((s) => s.updateNotes);
+  const clearCart = useCartStore((s) => s.clearCart);
+  const subtotal = useCartStore((s) => s.subtotal());
+  const storedRestaurantName = useCartStore((s) => s.restaurantName);
+
   const [orderType, setOrderType] = useState<OrderType>("pickup");
   const [selectedTip, setSelectedTip] = useState(0.18);
   const [customTip, setCustomTip] = useState("");
@@ -92,51 +91,26 @@ export default function CartPage() {
     phone: "",
   });
 
-  // Load cart from sessionStorage
-  useEffect(() => {
-    try {
-      const saved = sessionStorage.getItem(cartKey);
-      if (saved) setItems(JSON.parse(saved));
-    } catch {
-      /* ignore */
+  function handleUpdateQuantity(cartItemId: string, delta: number) {
+    const item = items.find((i) => i.id === cartItemId);
+    if (!item) return;
+    const newQty = item.quantity + delta;
+    if (newQty <= 0) {
+      storeRemoveItem(cartItemId);
+    } else {
+      storeUpdateQuantity(cartItemId, newQty);
     }
-  }, [cartKey]);
-
-  // Persist cart
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(cartKey, JSON.stringify(items));
-    } catch {
-      /* ignore */
-    }
-  }, [cartKey, items]);
-
-  function updateQuantity(menuItemId: string, delta: number) {
-    setItems((prev) =>
-      prev
-        .map((item) =>
-          item.menuItemId === menuItemId
-            ? { ...item, quantity: Math.max(0, item.quantity + delta) }
-            : item
-        )
-        .filter((item) => item.quantity > 0)
-    );
   }
 
-  function removeItem(menuItemId: string) {
-    setItems((prev) => prev.filter((i) => i.menuItemId !== menuItemId));
+  function handleRemoveItem(cartItemId: string) {
+    storeRemoveItem(cartItemId);
   }
 
-  function updateItemNotes(menuItemId: string, notes: string) {
-    setItems((prev) =>
-      prev.map((item) =>
-        item.menuItemId === menuItemId ? { ...item, notes } : item
-      )
-    );
+  function handleUpdateItemNotes(cartItemId: string, notes: string) {
+    storeUpdateNotes(cartItemId, notes);
   }
 
   // Calculations
-  const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
   const tax = subtotal * TAX_RATE;
   const tipAmount = showCustomTip
     ? parseFloat(customTip) || 0
@@ -149,7 +123,7 @@ export default function CartPage() {
     // Simulate API call
     await new Promise((r) => setTimeout(r, 1500));
     const orderId = `FED-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-    sessionStorage.removeItem(cartKey);
+    clearCart();
     router.push(`/r/${slug}/order/${orderId}`);
   }
 
@@ -159,10 +133,12 @@ export default function CartPage() {
     }
   }
 
-  const restaurantName = slug
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
+  const restaurantName =
+    storedRestaurantName ||
+    slug
+      .split("-")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
 
   if (items.length === 0) {
     return (
@@ -243,7 +219,7 @@ export default function CartPage() {
               <div className="space-y-3">
                 {items.map((item) => (
                   <div
-                    key={item.menuItemId}
+                    key={item.id}
                     className="rounded-xl border bg-card p-4 animate-fade-in"
                   >
                     <div className="flex items-start justify-between">
@@ -254,7 +230,7 @@ export default function CartPage() {
                         </p>
                       </div>
                       <button
-                        onClick={() => removeItem(item.menuItemId)}
+                        onClick={() => handleRemoveItem(item.id)}
                         className="rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -265,7 +241,7 @@ export default function CartPage() {
                       {/* Quantity controls */}
                       <div className="flex items-center gap-2 rounded-full border p-1">
                         <button
-                          onClick={() => updateQuantity(item.menuItemId, -1)}
+                          onClick={() => handleUpdateQuantity(item.id, -1)}
                           className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-muted"
                         >
                           <Minus className="h-3.5 w-3.5" />
@@ -274,7 +250,7 @@ export default function CartPage() {
                           {item.quantity}
                         </span>
                         <button
-                          onClick={() => updateQuantity(item.menuItemId, 1)}
+                          onClick={() => handleUpdateQuantity(item.id, 1)}
                           className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-muted"
                         >
                           <Plus className="h-3.5 w-3.5" />
@@ -291,7 +267,7 @@ export default function CartPage() {
                       className="mt-3 text-sm"
                       value={item.notes ?? ""}
                       onChange={(e) =>
-                        updateItemNotes(item.menuItemId, e.target.value)
+                        handleUpdateItemNotes(item.id, e.target.value)
                       }
                     />
                   </div>

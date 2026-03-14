@@ -41,79 +41,83 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import { useAnalytics } from "@/lib/hooks/use-analytics";
+import { useDashboard } from "@/lib/demo-context";
+import {
+  analyticsRatingDistribution,
+  analyticsAverageRating,
+  analyticsTotalReviews,
+} from "@/lib/demo-charts";
+import type { StatCard } from "@/lib/demo-charts";
 
-// --- Mock data ---
-
-const kpiCards = [
-  { label: "Total Revenue", value: "$24,680", change: "+14.2%", icon: DollarSign, color: "text-green-600 bg-green-50" },
-  { label: "Total Orders", value: "482", change: "+8.7%", icon: ShoppingBag, color: "text-blue-600 bg-blue-50" },
-  { label: "Avg Order Value", value: "$51.20", change: "+5.3%", icon: TrendingUp, color: "text-purple-600 bg-purple-50" },
-  { label: "Return Rate", value: "68%", change: "+12.1%", icon: Users, color: "text-orange-600 bg-orange-50" },
-];
-
-const revenueData = [
-  { date: "Mar 1", revenue: 2850, orders: 58 },
-  { date: "Mar 2", revenue: 3200, orders: 65 },
-  { date: "Mar 3", revenue: 2950, orders: 61 },
-  { date: "Mar 4", revenue: 3800, orders: 74 },
-  { date: "Mar 5", revenue: 4200, orders: 82 },
-  { date: "Mar 6", revenue: 3600, orders: 70 },
-  { date: "Mar 7", revenue: 3100, orders: 63 },
-  { date: "Mar 8", revenue: 3400, orders: 68 },
-  { date: "Mar 9", revenue: 4100, orders: 80 },
-  { date: "Mar 10", revenue: 3750, orders: 73 },
-  { date: "Mar 11", revenue: 4500, orders: 88 },
-  { date: "Mar 12", revenue: 3900, orders: 76 },
-  { date: "Mar 13", revenue: 3300, orders: 66 },
-  { date: "Mar 14", revenue: 2980, orders: 59 },
-];
-
-const hourlyOrders = [
-  { hour: "8am", orders: 4 },
-  { hour: "9am", orders: 8 },
-  { hour: "10am", orders: 12 },
-  { hour: "11am", orders: 28 },
-  { hour: "12pm", orders: 52 },
-  { hour: "1pm", orders: 48 },
-  { hour: "2pm", orders: 22 },
-  { hour: "3pm", orders: 15 },
-  { hour: "4pm", orders: 10 },
-  { hour: "5pm", orders: 18 },
-  { hour: "6pm", orders: 42 },
-  { hour: "7pm", orders: 56 },
-  { hour: "8pm", orders: 50 },
-  { hour: "9pm", orders: 38 },
-  { hour: "10pm", orders: 20 },
-];
-
-const topItems = [
-  { name: "Margherita Pizza", orders: 142, revenue: 2414 },
-  { name: "Spaghetti Carbonara", orders: 118, revenue: 2124 },
-  { name: "Pepperoni Pizza", orders: 105, revenue: 1995 },
-  { name: "Tiramisu", orders: 96, revenue: 864 },
-  { name: "Risotto ai Funghi", orders: 82, revenue: 1804 },
-  { name: "Bruschetta", orders: 78, revenue: 858 },
-  { name: "Caesar Salad", orders: 71, revenue: 852 },
-  { name: "Lasagna", orders: 64, revenue: 1216 },
-];
-
-const orderTypeData = [
-  { name: "Pickup", value: 45, color: "#3B82F6" },
-  { name: "Dine In", value: 35, color: "#8B5CF6" },
-  { name: "Delivery", value: 20, color: "#F59E0B" },
-];
-
-const paymentMethodData = [
-  { name: "Credit Card", value: 55, color: "#3B82F6" },
-  { name: "Apple Pay", value: 22, color: "#111827" },
-  { name: "Google Pay", value: 13, color: "#10B981" },
-  { name: "Cash", value: 10, color: "#F59E0B" },
-];
-
-const maxOrders = Math.max(...topItems.map((i) => i.orders));
+// Map iconName strings to actual Lucide components
+const iconMap: Record<string, any> = { DollarSign, ShoppingBag, TrendingUp, Users };
 
 export default function AnalyticsPage() {
   const [dateRange, setDateRange] = useState("14d");
+  const { restaurantId } = useDashboard();
+  const { analytics, isLoading } = useAnalytics(restaurantId, dateRange);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  // Build KPI cards from analytics
+  const kpiCards: StatCard[] = [
+    {
+      label: "Total Revenue",
+      value: `$${(analytics?.totalRevenue ?? 0).toLocaleString("en-US", { minimumFractionDigits: 0 })}`,
+      change: "+18%",
+      iconName: "DollarSign",
+      color: "text-green-600 bg-green-50",
+    },
+    {
+      label: "Total Orders",
+      value: String(analytics?.totalOrders ?? 0),
+      change: "+12%",
+      iconName: "ShoppingBag",
+      color: "text-blue-600 bg-blue-50",
+    },
+    {
+      label: "Avg Order Value",
+      value: `$${(analytics?.averageOrderValue ?? 0).toFixed(2)}`,
+      change: "+5.3%",
+      iconName: "TrendingUp",
+      color: "text-purple-600 bg-purple-50",
+    },
+    {
+      label: "Total Customers",
+      value: String(analytics?.totalCustomers ?? 0),
+      change: "+22%",
+      iconName: "Users",
+      color: "text-orange-600 bg-orange-50",
+    },
+  ];
+
+  // Revenue chart data
+  const revenueData = (analytics?.revenueByDay ?? []).map((d) => ({
+    date: new Date(d.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    revenue: d.revenue,
+  }));
+
+  // Hourly orders data from analytics (if available)
+  const hourlyOrders = (analytics as any)?.ordersByHour ?? [];
+
+  // Top items from analytics
+  const topItems = analytics?.topItems ?? [];
+  const maxOrders = topItems.length > 0
+    ? Math.max(...topItems.map((i) => i.quantity))
+    : 1;
+
+  // Order type breakdown from analytics (if available)
+  const orderTypeData = (analytics as any)?.orderTypes ?? [];
+
+  // Payment method breakdown from analytics (if available)
+  const paymentMethodData = (analytics as any)?.paymentMethods ?? [];
 
   return (
     <div className="space-y-6">
@@ -144,7 +148,7 @@ export default function AnalyticsPage() {
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {kpiCards.map((kpi) => {
-          const Icon = kpi.icon;
+          const Icon = iconMap[kpi.iconName];
           return (
             <Card key={kpi.label}>
               <CardContent className="p-6">
@@ -230,28 +234,36 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="h-[280px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={hourlyOrders}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis
-                    dataKey="hour"
-                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
-                  />
-                  <YAxis
-                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
-                      fontSize: "13px",
-                    }}
-                    formatter={(value: any) => [value, "Orders"]}
-                  />
-                  <Bar dataKey="orders" radius={[4, 4, 0, 0]} fill="hsl(var(--primary))" />
-                </BarChart>
-              </ResponsiveContainer>
+              {hourlyOrders.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={hourlyOrders}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis
+                      dataKey="hour"
+                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                    />
+                    <YAxis
+                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "8px",
+                        fontSize: "13px",
+                      }}
+                      formatter={(value: any) => [value, "Orders"]}
+                    />
+                    <Bar dataKey="orders" radius={[4, 4, 0, 0]} fill="hsl(var(--primary))" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-sm text-muted-foreground">
+                    Hourly data will appear as more orders come in
+                  </p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -264,30 +276,38 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {topItems.map((item, i) => (
-                <div key={item.name} className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-muted-foreground w-4">
-                        {i + 1}
-                      </span>
-                      <span className="font-medium">{item.name}</span>
+              {topItems.length > 0 ? (
+                topItems.map((item, i) => (
+                  <div key={item.name} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-muted-foreground w-4">
+                          {i + 1}
+                        </span>
+                        <span className="font-medium">{item.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span>{item.quantity} orders</span>
+                        <span className="font-medium text-foreground">
+                          ${item.revenue.toLocaleString()}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span>{item.orders} orders</span>
-                      <span className="font-medium text-foreground">
-                        ${item.revenue}
-                      </span>
+                    <div className="ml-6 h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all"
+                        style={{ width: `${(item.quantity / maxOrders) * 100}%` }}
+                      />
                     </div>
                   </div>
-                  <div className="ml-6 h-2 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all"
-                      style={{ width: `${(item.orders / maxOrders) * 100}%` }}
-                    />
-                  </div>
+                ))
+              ) : (
+                <div className="flex items-center justify-center h-32">
+                  <p className="text-sm text-muted-foreground">
+                    No item data available yet
+                  </p>
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>
@@ -301,47 +321,57 @@ export default function AnalyticsPage() {
             <CardDescription>Breakdown by fulfillment method</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[220px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={orderTypeData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={85}
-                    paddingAngle={4}
-                    dataKey="value"
-                  >
-                    {orderTypeData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
-                      fontSize: "13px",
-                    }}
-                    formatter={(value: any) => [`${value}%`, ""]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex justify-center gap-4 mt-2">
-              {orderTypeData.map((item) => (
-                <div key={item.name} className="flex items-center gap-2">
-                  <div
-                    className="h-3 w-3 rounded-full"
-                    style={{ backgroundColor: item.color }}
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    {item.name} ({item.value}%)
-                  </span>
+            {orderTypeData.length > 0 ? (
+              <>
+                <div className="h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={orderTypeData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={85}
+                        paddingAngle={4}
+                        dataKey="value"
+                      >
+                        {orderTypeData.map((entry: any, index: number) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "8px",
+                          fontSize: "13px",
+                        }}
+                        formatter={(value: any) => [`${value}%`, ""]}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>
-              ))}
-            </div>
+                <div className="flex justify-center gap-4 mt-2">
+                  {orderTypeData.map((item: any) => (
+                    <div key={item.name} className="flex items-center gap-2">
+                      <div
+                        className="h-3 w-3 rounded-full"
+                        style={{ backgroundColor: item.color }}
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        {item.name} ({item.value}%)
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-[280px]">
+                <p className="text-sm text-muted-foreground">
+                  Order type data will appear as more orders come in
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -352,47 +382,57 @@ export default function AnalyticsPage() {
             <CardDescription>How customers pay</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[220px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={paymentMethodData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={85}
-                    paddingAngle={4}
-                    dataKey="value"
-                  >
-                    {paymentMethodData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
-                      fontSize: "13px",
-                    }}
-                    formatter={(value: any) => [`${value}%`, ""]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex flex-wrap justify-center gap-3 mt-2">
-              {paymentMethodData.map((item) => (
-                <div key={item.name} className="flex items-center gap-2">
-                  <div
-                    className="h-3 w-3 rounded-full"
-                    style={{ backgroundColor: item.color }}
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    {item.name} ({item.value}%)
-                  </span>
+            {paymentMethodData.length > 0 ? (
+              <>
+                <div className="h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={paymentMethodData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={85}
+                        paddingAngle={4}
+                        dataKey="value"
+                      >
+                        {paymentMethodData.map((entry: any, index: number) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "8px",
+                          fontSize: "13px",
+                        }}
+                        formatter={(value: any) => [`${value}%`, ""]}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>
-              ))}
-            </div>
+                <div className="flex flex-wrap justify-center gap-3 mt-2">
+                  {paymentMethodData.map((item: any) => (
+                    <div key={item.name} className="flex items-center gap-2">
+                      <div
+                        className="h-3 w-3 rounded-full"
+                        style={{ backgroundColor: item.color }}
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        {item.name} ({item.value}%)
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-[280px]">
+                <p className="text-sm text-muted-foreground">
+                  Payment data will appear as more orders come in
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -406,17 +446,11 @@ export default function AnalyticsPage() {
             <div className="flex flex-col items-center justify-center py-6">
               <div className="flex items-center gap-2 mb-2">
                 <Star className="h-8 w-8 text-yellow-500 fill-yellow-500" />
-                <span className="text-5xl font-bold">4.7</span>
+                <span className="text-5xl font-bold">{analyticsAverageRating}</span>
               </div>
               <p className="text-sm text-muted-foreground mb-4">out of 5.0</p>
               <div className="w-full space-y-2">
-                {[
-                  { stars: 5, count: 186, percent: 62 },
-                  { stars: 4, count: 72, percent: 24 },
-                  { stars: 3, count: 24, percent: 8 },
-                  { stars: 2, count: 12, percent: 4 },
-                  { stars: 1, count: 6, percent: 2 },
-                ].map((row) => (
+                {analyticsRatingDistribution.map((row) => (
                   <div key={row.stars} className="flex items-center gap-2">
                     <span className="text-xs w-3 text-right text-muted-foreground">
                       {row.stars}
@@ -434,7 +468,7 @@ export default function AnalyticsPage() {
                   </div>
                 ))}
               </div>
-              <p className="text-xs text-muted-foreground mt-3">Based on 300 reviews</p>
+              <p className="text-xs text-muted-foreground mt-3">Based on {analyticsTotalReviews} reviews</p>
             </div>
           </CardContent>
         </Card>

@@ -49,154 +49,64 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-// --- Mock data ---
-
-interface ModifierGroup {
-  id: string;
-  name: string;
-  required: boolean;
-  modifiers: { id: string; name: string; price: number }[];
-}
-
-interface MenuItem {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  imageUrl?: string;
-  categoryId: string;
-  isActive: boolean;
-  isPopular: boolean;
-  isVegetarian: boolean;
-  isVegan: boolean;
-  isGlutenFree: boolean;
-  isSpicy: boolean;
-  sortOrder: number;
-  modifierGroups: ModifierGroup[];
-}
-
-interface Category {
-  id: string;
-  name: string;
-  description: string;
-  sortOrder: number;
-  isActive: boolean;
-}
-
-const initialCategories: Category[] = [
-  { id: "cat-1", name: "Appetizers", description: "Start your meal right", sortOrder: 0, isActive: true },
-  { id: "cat-2", name: "Pizza", description: "Wood-fired Neapolitan style", sortOrder: 1, isActive: true },
-  { id: "cat-3", name: "Pasta", description: "Handmade daily", sortOrder: 2, isActive: true },
-  { id: "cat-4", name: "Main Courses", description: "Chef's signature dishes", sortOrder: 3, isActive: true },
-  { id: "cat-5", name: "Desserts", description: "Sweet endings", sortOrder: 4, isActive: true },
-  { id: "cat-6", name: "Beverages", description: "Drinks and cocktails", sortOrder: 5, isActive: true },
-];
-
-const initialItems: MenuItem[] = [
-  {
-    id: "item-1", name: "Bruschetta", description: "Toasted bread topped with fresh tomatoes, basil, and garlic", price: 11.0,
-    categoryId: "cat-1", isActive: true, isPopular: true, isVegetarian: true, isVegan: true, isGlutenFree: false, isSpicy: false, sortOrder: 0,
-    modifierGroups: [],
-  },
-  {
-    id: "item-2", name: "Caprese Salad", description: "Fresh mozzarella, tomatoes, and basil with balsamic glaze", price: 13.0,
-    categoryId: "cat-1", isActive: true, isPopular: false, isVegetarian: true, isVegan: false, isGlutenFree: true, isSpicy: false, sortOrder: 1,
-    modifierGroups: [],
-  },
-  {
-    id: "item-3", name: "Calamari Fritti", description: "Crispy fried calamari with marinara sauce", price: 14.0,
-    categoryId: "cat-1", isActive: true, isPopular: false, isVegetarian: false, isVegan: false, isGlutenFree: false, isSpicy: false, sortOrder: 2,
-    modifierGroups: [],
-  },
-  {
-    id: "item-4", name: "Margherita Pizza", description: "San Marzano tomatoes, fresh mozzarella, basil, and olive oil", price: 17.0,
-    categoryId: "cat-2", isActive: true, isPopular: true, isVegetarian: true, isVegan: false, isGlutenFree: false, isSpicy: false, sortOrder: 0,
-    modifierGroups: [
-      { id: "mg-1", name: "Size", required: true, modifiers: [
-        { id: "m-1", name: "Regular 12\"", price: 0 },
-        { id: "m-2", name: "Large 16\"", price: 4 },
-      ]},
-      { id: "mg-2", name: "Extra Toppings", required: false, modifiers: [
-        { id: "m-3", name: "Extra Cheese", price: 2 },
-        { id: "m-4", name: "Mushrooms", price: 1.5 },
-        { id: "m-5", name: "Olives", price: 1.5 },
-      ]},
-    ],
-  },
-  {
-    id: "item-5", name: "Pepperoni Pizza", description: "Classic pepperoni with mozzarella and tomato sauce", price: 19.0,
-    categoryId: "cat-2", isActive: true, isPopular: true, isVegetarian: false, isVegan: false, isGlutenFree: false, isSpicy: false, sortOrder: 1,
-    modifierGroups: [],
-  },
-  {
-    id: "item-6", name: "Four Cheese Pizza", description: "Mozzarella, gorgonzola, parmesan, and fontina", price: 20.0,
-    categoryId: "cat-2", isActive: true, isPopular: false, isVegetarian: true, isVegan: false, isGlutenFree: false, isSpicy: false, sortOrder: 2,
-    modifierGroups: [],
-  },
-  {
-    id: "item-7", name: "Spaghetti Carbonara", description: "Pancetta, egg yolk, pecorino romano, and black pepper", price: 18.0,
-    categoryId: "cat-3", isActive: true, isPopular: true, isVegetarian: false, isVegan: false, isGlutenFree: false, isSpicy: false, sortOrder: 0,
-    modifierGroups: [],
-  },
-  {
-    id: "item-8", name: "Penne Arrabbiata", description: "Spicy tomato sauce with garlic and red chili flakes", price: 16.0,
-    categoryId: "cat-3", isActive: true, isPopular: false, isVegetarian: true, isVegan: true, isGlutenFree: false, isSpicy: true, sortOrder: 1,
-    modifierGroups: [],
-  },
-  {
-    id: "item-9", name: "Risotto ai Funghi", description: "Arborio rice with wild mushrooms, truffle oil, and parmesan", price: 22.0,
-    categoryId: "cat-4", isActive: true, isPopular: false, isVegetarian: true, isVegan: false, isGlutenFree: true, isSpicy: false, sortOrder: 0,
-    modifierGroups: [],
-  },
-  {
-    id: "item-10", name: "Tiramisu", description: "Classic Italian dessert with mascarpone, espresso, and cocoa", price: 9.0,
-    categoryId: "cat-5", isActive: true, isPopular: true, isVegetarian: true, isVegan: false, isGlutenFree: false, isSpicy: false, sortOrder: 0,
-    modifierGroups: [],
-  },
-  {
-    id: "item-11", name: "Gelato (3 scoops)", description: "Choose from our daily selection of house-made flavors", price: 8.0,
-    categoryId: "cat-5", isActive: true, isPopular: false, isVegetarian: true, isVegan: false, isGlutenFree: true, isSpicy: false, sortOrder: 1,
-    modifierGroups: [],
-  },
-  {
-    id: "item-12", name: "Espresso", description: "Double shot, Italian-roasted", price: 3.5,
-    categoryId: "cat-6", isActive: true, isPopular: false, isVegetarian: true, isVegan: true, isGlutenFree: true, isSpicy: false, sortOrder: 0,
-    modifierGroups: [],
-  },
-  {
-    id: "item-13", name: "House Red Wine", description: "Glass of Chianti Classico DOCG", price: 12.0,
-    categoryId: "cat-6", isActive: false, isPopular: false, isVegetarian: true, isVegan: true, isGlutenFree: true, isSpicy: false, sortOrder: 1,
-    modifierGroups: [],
-  },
-];
-
-const emptyItem: Omit<MenuItem, "id"> = {
-  name: "", description: "", price: 0, categoryId: "", isActive: true, isPopular: false,
-  isVegetarian: false, isVegan: false, isGlutenFree: false, isSpicy: false, sortOrder: 0, modifierGroups: [],
-};
+import { useMenu } from "@/lib/hooks/use-menu";
+import { useDashboard } from "@/lib/demo-context";
+import { EMPTY_MENU_ITEM } from "@/lib/constants";
+import type { MenuItem, Category } from "@/lib/hooks/use-restaurant";
 
 export default function MenuPage() {
-  const [categories] = useState(initialCategories);
-  const [items, setItems] = useState(initialItems);
+  const { slug, restaurantId } = useDashboard();
+  const {
+    categories,
+    isLoading,
+    createMenuItem,
+    updateMenuItem,
+    deleteMenuItem,
+    createCategory,
+    mutate,
+  } = useMenu(slug);
+
+  // Flatten categories into a flat items array for filtering
+  const items = categories.flatMap((c) =>
+    (c.items ?? []).map((item) => ({ ...item, categoryId: c.id }))
+  );
+
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    new Set(initialCategories.map((c) => c.id))
+    new Set()
   );
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
-  const [formData, setFormData] = useState(emptyItem);
+  const [editingItem, setEditingItem] = useState<(MenuItem & { categoryId: string }) | null>(null);
+  const [formData, setFormData] = useState<typeof EMPTY_MENU_ITEM & { modifierGroups?: any[] }>(
+    { ...EMPTY_MENU_ITEM, modifierGroups: [] }
+  );
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryDescription, setNewCategoryDescription] = useState("");
+
+  // Expand all categories by default once loaded
+  if (categories.length > 0 && expandedCategories.size === 0) {
+    const allIds = new Set(categories.map((c) => c.id));
+    if (allIds.size > 0) {
+      setExpandedCategories(allIds);
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
 
   const filteredItems = items.filter((item) => {
     const matchesSearch =
       search === "" ||
       item.name.toLowerCase().includes(search.toLowerCase()) ||
-      item.description.toLowerCase().includes(search.toLowerCase());
+      (item.description ?? "").toLowerCase().includes(search.toLowerCase());
     const matchesCategory =
       activeCategory === null || item.categoryId === activeCategory;
     return matchesSearch && matchesCategory;
@@ -220,51 +130,74 @@ export default function MenuPage() {
     });
   };
 
-  const openEditDialog = (item: MenuItem) => {
+  const openEditDialog = (item: MenuItem & { categoryId: string }) => {
     setEditingItem(item);
     setFormData({
-      name: item.name, description: item.description, price: item.price,
-      imageUrl: item.imageUrl, categoryId: item.categoryId, isActive: item.isActive,
-      isPopular: item.isPopular, isVegetarian: item.isVegetarian, isVegan: item.isVegan,
-      isGlutenFree: item.isGlutenFree, isSpicy: item.isSpicy, sortOrder: item.sortOrder,
-      modifierGroups: item.modifierGroups,
+      name: item.name,
+      description: item.description ?? "",
+      price: item.price,
+      imageUrl: item.imageUrl ?? "",
+      categoryId: item.categoryId,
+      isActive: item.isActive,
+      isPopular: item.isPopular,
+      isVegetarian: item.isVegetarian,
+      isVegan: item.isVegan,
+      isGlutenFree: item.isGlutenFree,
+      isSpicy: item.isSpicy,
+      calories: item.calories,
+      modifierGroups: item.modifierGroups ?? [],
     });
     setItemDialogOpen(true);
   };
 
   const openNewDialog = () => {
     setEditingItem(null);
-    setFormData({ ...emptyItem, categoryId: activeCategory || categories[0]?.id || "" });
+    setFormData({
+      ...EMPTY_MENU_ITEM,
+      categoryId: activeCategory || categories[0]?.id || "",
+      modifierGroups: [],
+    });
     setItemDialogOpen(true);
   };
 
-  const saveItem = () => {
+  const saveItem = async () => {
+    const { modifierGroups, ...itemData } = formData;
     if (editingItem) {
-      setItems((prev) =>
-        prev.map((i) => (i.id === editingItem.id ? { ...i, ...formData } : i))
-      );
+      await updateMenuItem(editingItem.id, itemData);
     } else {
-      const newId = `item-${Date.now()}`;
-      setItems((prev) => [...prev, { id: newId, ...formData }]);
+      await createMenuItem(itemData);
     }
     setItemDialogOpen(false);
   };
 
-  const deleteItem = (itemId: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== itemId));
+  const handleDeleteItem = async (itemId: string) => {
+    await deleteMenuItem(itemId);
   };
 
-  const toggleItemActive = (itemId: string) => {
-    setItems((prev) =>
-      prev.map((i) => (i.id === itemId ? { ...i, isActive: !i.isActive } : i))
-    );
+  const toggleItemActive = async (itemId: string) => {
+    const item = items.find((i) => i.id === itemId);
+    if (item) {
+      await updateMenuItem(itemId, { isActive: !item.isActive });
+    }
   };
 
-  const bulkToggleActive = (active: boolean) => {
-    setItems((prev) =>
-      prev.map((i) => (selectedItems.has(i.id) ? { ...i, isActive: active } : i))
+  const bulkToggleActive = async (active: boolean) => {
+    const promises = Array.from(selectedItems).map((id) =>
+      updateMenuItem(id, { isActive: active })
     );
+    await Promise.all(promises);
     setSelectedItems(new Set());
+  };
+
+  const handleCreateCategory = async () => {
+    await createCategory({
+      name: newCategoryName,
+      description: newCategoryDescription,
+      restaurantId,
+    });
+    setNewCategoryName("");
+    setNewCategoryDescription("");
+    setCategoryDialogOpen(false);
   };
 
   return (
@@ -316,7 +249,7 @@ export default function MenuPage() {
                 <Button variant="outline" onClick={() => setCategoryDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={() => setCategoryDialogOpen(false)}>
+                <Button onClick={handleCreateCategory}>
                   Create Category
                 </Button>
               </DialogFooter>
@@ -492,7 +425,7 @@ export default function MenuPage() {
                               <p className="text-xs text-muted-foreground truncate">
                                 {item.description}
                               </p>
-                              {item.modifierGroups.length > 0 && (
+                              {(item.modifierGroups?.length ?? 0) > 0 && (
                                 <p className="text-[10px] text-muted-foreground">
                                   {item.modifierGroups.length} modifier group(s)
                                 </p>
@@ -529,7 +462,7 @@ export default function MenuPage() {
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
                                     className="text-destructive"
-                                    onClick={() => deleteItem(item.id)}
+                                    onClick={() => handleDeleteItem(item.id)}
                                   >
                                     <Trash2 className="mr-2 h-4 w-4" />
                                     Delete
@@ -703,7 +636,7 @@ export default function MenuPage() {
                   Add Group
                 </Button>
               </div>
-              {formData.modifierGroups.length === 0 ? (
+              {(formData.modifierGroups ?? []).length === 0 ? (
                 <div className="rounded-lg border border-dashed p-6 text-center">
                   <p className="text-sm text-muted-foreground">
                     No modifier groups yet. Add one for sizes, toppings, etc.
@@ -711,7 +644,7 @@ export default function MenuPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {formData.modifierGroups.map((mg) => (
+                  {(formData.modifierGroups ?? []).map((mg: any) => (
                     <div key={mg.id} className="rounded-lg border p-3">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
@@ -727,14 +660,16 @@ export default function MenuPage() {
                         </Button>
                       </div>
                       <div className="space-y-1">
-                        {mg.modifiers.map((m) => (
+                        {(mg.modifiers ?? []).map((m: any) => (
                           <div
                             key={m.id}
                             className="flex items-center justify-between text-xs text-muted-foreground"
                           >
                             <span>{m.name}</span>
                             <span>
-                              {m.price > 0 ? `+$${m.price.toFixed(2)}` : "Included"}
+                              {(m.priceAdjustment ?? m.price ?? 0) > 0
+                                ? `+$${(m.priceAdjustment ?? m.price ?? 0).toFixed(2)}`
+                                : "Included"}
                             </span>
                           </div>
                         ))}

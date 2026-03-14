@@ -1,21 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { menuPostSchema, menuPatchSchema } from "@/lib/validations";
 
 // Create or update menu category
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { type } = body;
 
-    if (type === "category") {
-      const { restaurantId, name, description, imageUrl, sortOrder } = body;
+    const parsed = menuPostSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
 
-      if (!restaurantId || !name) {
-        return NextResponse.json(
-          { error: "Restaurant ID and name are required" },
-          { status: 400 }
-        );
-      }
+    const data = parsed.data;
+
+    if (data.type === "category") {
+      const { restaurantId, name, description, imageUrl, sortOrder } = data;
 
       const category = await prisma.menuCategory.create({
         data: {
@@ -30,7 +33,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ category }, { status: 201 });
     }
 
-    if (type === "item") {
+    if (data.type === "item") {
       const {
         categoryId,
         name,
@@ -44,21 +47,14 @@ export async function POST(req: NextRequest) {
         isGlutenFree,
         isSpicy,
         calories,
-      } = body;
-
-      if (!categoryId || !name || price === undefined) {
-        return NextResponse.json(
-          { error: "Category ID, name, and price are required" },
-          { status: 400 }
-        );
-      }
+      } = data;
 
       const item = await prisma.menuItem.create({
         data: {
           categoryId,
           name,
           description,
-          price: parseFloat(price),
+          price,
           imageUrl,
           sortOrder: sortOrder || 0,
           isPopular: isPopular || false,
@@ -66,15 +62,15 @@ export async function POST(req: NextRequest) {
           isVegan: isVegan || false,
           isGlutenFree: isGlutenFree || false,
           isSpicy: isSpicy || false,
-          calories: calories ? parseInt(calories) : null,
+          calories: calories ?? null,
         },
       });
 
       return NextResponse.json({ item }, { status: 201 });
     }
 
-    if (type === "modifier_group") {
-      const { menuItemId, name, required, minSelect, maxSelect, modifiers } = body;
+    if (data.type === "modifier_group") {
+      const { menuItemId, name, required, minSelect, maxSelect, modifiers } = data;
 
       const group = await prisma.modifierGroup.create({
         data: {
@@ -118,7 +114,16 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { type, id, ...data } = body;
+
+    const parsed = menuPatchSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const { type, id, ...data } = parsed.data;
 
     if (type === "category") {
       const category = await prisma.menuCategory.update({
@@ -129,8 +134,8 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (type === "item") {
-      if (data.price) data.price = parseFloat(data.price);
-      if (data.calories) data.calories = parseInt(data.calories);
+      if (data.price) data.price = parseFloat(data.price as string);
+      if (data.calories) data.calories = parseInt(data.calories as string);
 
       const item = await prisma.menuItem.update({
         where: { id },

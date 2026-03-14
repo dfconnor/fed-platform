@@ -1,24 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { hash } from "bcryptjs";
+import { registerUserSchema } from "@/lib/validations";
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, email, password, role } = await req.json();
+    const body = await req.json();
 
-    if (!email || !password || !name) {
+    const parsed = registerUserSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Name, email, and password are required" },
+        { error: "Validation failed", details: parsed.error.flatten() },
         { status: 400 }
       );
     }
 
-    if (password.length < 6) {
-      return NextResponse.json(
-        { error: "Password must be at least 6 characters" },
-        { status: 400 }
-      );
-    }
+    const { name, email, password, role } = parsed.data;
 
     const existingUser = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
@@ -32,14 +29,13 @@ export async function POST(req: NextRequest) {
     }
 
     const passwordHash = await hash(password, 12);
-    const userRole = role === "owner" ? "owner" : "customer";
 
     const user = await prisma.user.create({
       data: {
         name,
         email: email.toLowerCase(),
         passwordHash,
-        role: userRole,
+        role,
       },
     });
 

@@ -8,6 +8,7 @@ import {
   Store,
   Calendar,
   ArrowUpRight,
+  type LucideIcon,
 } from "lucide-react";
 import {
   Card,
@@ -41,74 +42,45 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import { usePlatformAnalytics } from "@/lib/hooks/use-analytics";
+import {
+  adminAnalyticsKpis,
+  adminPlatformRevenueData,
+  adminOrdersPerRestaurant,
+  adminGrowthData,
+  adminTopRestaurants,
+  adminRevenueByRestaurant,
+  adminAnalyticsFeeRevenueData,
+} from "@/lib/demo-charts";
 
-// --- Mock data ---
+// --- Icon map: resolve iconName strings from mock-data to Lucide components ---
+const iconMap: Record<string, LucideIcon> = {
+  DollarSign,
+  TrendingUp,
+  Users,
+  Store,
+};
 
-const platformRevenueData = [
-  { month: "Sep", revenue: 420000, fees: 10500 },
-  { month: "Oct", revenue: 480000, fees: 12000 },
-  { month: "Nov", revenue: 510000, fees: 12750 },
-  { month: "Dec", revenue: 620000, fees: 15500 },
-  { month: "Jan", revenue: 550000, fees: 13750 },
-  { month: "Feb", revenue: 590000, fees: 14750 },
-  { month: "Mar", revenue: 684000, fees: 17100 },
-];
-
-const ordersPerRestaurant = [
-  { name: "Pizza Palace", orders: 4150 },
-  { name: "Taco Fiesta", orders: 3210 },
-  { name: "Bella Cucina", orders: 2847 },
-  { name: "Sushi Master", orders: 1923 },
-  { name: "Le Petit Bistro", orders: 1580 },
-  { name: "Wok Express", orders: 890 },
-];
-
-const growthData = [
-  { week: "W1", newUsers: 42, newRestaurants: 1 },
-  { week: "W2", newUsers: 58, newRestaurants: 0 },
-  { week: "W3", newUsers: 67, newRestaurants: 2 },
-  { week: "W4", newUsers: 53, newRestaurants: 1 },
-  { week: "W5", newUsers: 84, newRestaurants: 3 },
-  { week: "W6", newUsers: 71, newRestaurants: 0 },
-  { week: "W7", newUsers: 92, newRestaurants: 2 },
-  { week: "W8", newUsers: 78, newRestaurants: 1 },
-  { week: "W9", newUsers: 105, newRestaurants: 2 },
-  { week: "W10", newUsers: 88, newRestaurants: 1 },
-  { week: "W11", newUsers: 112, newRestaurants: 3 },
-  { week: "W12", newUsers: 96, newRestaurants: 2 },
-];
-
-const topRestaurants = [
-  { name: "Pizza Palace", revenue: 201000, orders: 4150, rating: 4.3, growth: "+15%" },
-  { name: "Bella Cucina", revenue: 148230, orders: 2847, rating: 4.7, growth: "+22%" },
-  { name: "Le Petit Bistro", revenue: 134200, orders: 1580, rating: 4.9, growth: "+31%" },
-  { name: "Sushi Master", revenue: 112450, orders: 1923, rating: 4.8, growth: "+18%" },
-  { name: "Taco Fiesta", revenue: 95800, orders: 3210, rating: 4.5, growth: "+12%" },
-];
-
-const revenueByRestaurant = [
-  { name: "Pizza Palace", value: 201000, color: "#a855f7" },
-  { name: "Bella Cucina", value: 148230, color: "#3b82f6" },
-  { name: "Le Petit Bistro", value: 134200, color: "#10b981" },
-  { name: "Sushi Master", value: 112450, color: "#f59e0b" },
-  { name: "Taco Fiesta", value: 95800, color: "#ef4444" },
-  { name: "Others", value: 42100, color: "#6b7280" },
-];
-
-const feeRevenueData = [
-  { month: "Sep", platformFees: 10500, net: 4200 },
-  { month: "Oct", platformFees: 12000, net: 4800 },
-  { month: "Nov", platformFees: 12750, net: 5100 },
-  { month: "Dec", platformFees: 15500, net: 6200 },
-  { month: "Jan", platformFees: 13750, net: 5500 },
-  { month: "Feb", platformFees: 14750, net: 5900 },
-  { month: "Mar", platformFees: 17100, net: 6840 },
-];
+const platformRevenueData = adminPlatformRevenueData;
+const ordersPerRestaurant = adminOrdersPerRestaurant;
+const growthData = adminGrowthData;
+const topRestaurants = adminTopRestaurants;
+const revenueByRestaurant = adminRevenueByRestaurant;
+const feeRevenueData = adminAnalyticsFeeRevenueData;
 
 const maxRevenue = Math.max(...topRestaurants.map((r) => r.revenue));
 
 export default function AdminAnalyticsPage() {
   const [period, setPeriod] = useState("7m");
+  const { analytics, isLoading } = usePlatformAnalytics(period);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-slate-400">Loading analytics...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -139,13 +111,8 @@ export default function AdminAnalyticsPage() {
 
       {/* KPI Row */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: "Total GMV", value: "$3.86M", change: "+22%", icon: DollarSign, color: "text-green-400 bg-green-500/20" },
-          { label: "Platform Fees", value: "$96.4K", change: "+22%", icon: TrendingUp, color: "text-purple-400 bg-purple-500/20" },
-          { label: "New Users (12w)", value: "946", change: "+34%", icon: Users, color: "text-blue-400 bg-blue-500/20" },
-          { label: "New Restaurants (12w)", value: "18", change: "+50%", icon: Store, color: "text-amber-400 bg-amber-500/20" },
-        ].map((kpi) => {
-          const Icon = kpi.icon;
+        {adminAnalyticsKpis.map((kpi) => {
+          const Icon = iconMap[kpi.iconName] ?? DollarSign;
           return (
             <Card key={kpi.label} className="border-slate-800 bg-slate-900">
               <CardContent className="p-6">

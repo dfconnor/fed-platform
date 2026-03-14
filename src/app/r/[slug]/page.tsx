@@ -23,6 +23,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { cn, formatCurrency } from "@/lib/utils";
+import { useCartStore } from "@/lib/store";
 
 /* ================================================================
    TYPES (matching API response)
@@ -67,79 +68,6 @@ interface RestaurantData {
 }
 
 /* ================================================================
-   CART STATE (local for this page, persisted to sessionStorage)
-   ================================================================ */
-
-interface CartItem {
-  menuItemId: string;
-  name: string;
-  price: number;
-  quantity: number;
-}
-
-function useCart(slug: string) {
-  const key = `fed-cart-${slug}`;
-  const [items, setItems] = useState<CartItem[]>([]);
-
-  useEffect(() => {
-    try {
-      const saved = sessionStorage.getItem(key);
-      if (saved) setItems(JSON.parse(saved));
-    } catch {
-      /* ignore */
-    }
-  }, [key]);
-
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(key, JSON.stringify(items));
-    } catch {
-      /* ignore */
-    }
-  }, [key, items]);
-
-  const addItem = useCallback(
-    (item: MenuItem) => {
-      setItems((prev) => {
-        const existing = prev.find((i) => i.menuItemId === item.id);
-        if (existing) {
-          return prev.map((i) =>
-            i.menuItemId === item.id
-              ? { ...i, quantity: i.quantity + 1 }
-              : i
-          );
-        }
-        return [
-          ...prev,
-          { menuItemId: item.id, name: item.name, price: item.price, quantity: 1 },
-        ];
-      });
-    },
-    []
-  );
-
-  const removeItem = useCallback((menuItemId: string) => {
-    setItems((prev) => {
-      const existing = prev.find((i) => i.menuItemId === menuItemId);
-      if (!existing) return prev;
-      if (existing.quantity <= 1) {
-        return prev.filter((i) => i.menuItemId !== menuItemId);
-      }
-      return prev.map((i) =>
-        i.menuItemId === menuItemId
-          ? { ...i, quantity: i.quantity - 1 }
-          : i
-      );
-    });
-  }, []);
-
-  const totalItems = items.reduce((s, i) => s + i.quantity, 0);
-  const totalPrice = items.reduce((s, i) => s + i.price * i.quantity, 0);
-
-  return { items, addItem, removeItem, totalItems, totalPrice };
-}
-
-/* ================================================================
    COMPONENT
    ================================================================ */
 
@@ -149,8 +77,43 @@ export default function RestaurantPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { items: cartItems, addItem, removeItem, totalItems, totalPrice } =
-    useCart(slug);
+  const cartItems = useCartStore((s) => s.items);
+  const addCartItem = useCartStore((s) => s.addItem);
+  const removeCartItem = useCartStore((s) => s.removeItem);
+  const updateQuantity = useCartStore((s) => s.updateQuantity);
+  const totalItems = useCartStore((s) => s.itemCount());
+  const totalPrice = useCartStore((s) => s.subtotal());
+
+  const handleAddItem = useCallback(
+    (item: MenuItem) => {
+      addCartItem(
+        {
+          menuItemId: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: 1,
+          imageUrl: item.imageUrl || undefined,
+          modifiers: [],
+        },
+        slug,
+        restaurant?.name || ""
+      );
+    },
+    [addCartItem, slug, restaurant?.name]
+  );
+
+  const handleRemoveItem = useCallback(
+    (menuItemId: string) => {
+      const cartItem = cartItems.find((i) => i.menuItemId === menuItemId);
+      if (!cartItem) return;
+      if (cartItem.quantity <= 1) {
+        removeCartItem(cartItem.id);
+      } else {
+        updateQuantity(cartItem.id, cartItem.quantity - 1);
+      }
+    },
+    [cartItems, removeCartItem, updateQuantity]
+  );
 
   const [activeCategory, setActiveCategory] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -174,9 +137,10 @@ export default function RestaurantPage() {
           return;
         }
         const data = await res.json();
-        setRestaurant(data);
-        if (data.categories?.length > 0) {
-          setActiveCategory(data.categories[0].id);
+        const r = data.restaurant;
+        setRestaurant(r);
+        if (r.categories?.length > 0) {
+          setActiveCategory(r.categories[0].id);
         }
       } catch {
         setError("Failed to load restaurant");
@@ -477,8 +441,8 @@ export default function RestaurantPage() {
                     item={item}
                     qty={qty}
                     primaryColor={restaurant.primaryColor}
-                    onAdd={() => addItem(item)}
-                    onRemove={() => removeItem(item.id)}
+                    onAdd={() => handleAddItem(item)}
+                    onRemove={() => handleRemoveItem(item.id)}
                   />
                 );
               })}

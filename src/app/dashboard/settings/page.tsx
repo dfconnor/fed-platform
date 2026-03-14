@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Save,
   Store,
@@ -31,54 +31,62 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useRestaurant } from "@/lib/hooks/use-restaurant";
+import { useDashboard } from "@/lib/demo-context";
+import { DAYS_OF_WEEK } from "@/lib/constants";
 
-// --- Mock data ---
+interface BusinessHoursEntry {
+  open: string;
+  close: string;
+  closed: boolean;
+}
 
-const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+type BusinessHoursMap = Record<string, BusinessHoursEntry>;
 
-const initialHours = {
-  Monday: { open: "11:00", close: "22:00", closed: false },
-  Tuesday: { open: "11:00", close: "22:00", closed: false },
-  Wednesday: { open: "11:00", close: "22:00", closed: false },
-  Thursday: { open: "11:00", close: "22:00", closed: false },
-  Friday: { open: "11:00", close: "23:00", closed: false },
-  Saturday: { open: "10:00", close: "23:00", closed: false },
-  Sunday: { open: "10:00", close: "21:00", closed: false },
-};
+const defaultBusinessHours: BusinessHoursMap = DAYS_OF_WEEK.reduce(
+  (acc, day) => ({
+    ...acc,
+    [day]: { open: "11:00", close: "22:00", closed: false },
+  }),
+  {} as BusinessHoursMap
+);
 
 export default function SettingsPage() {
-  const [restaurant, setRestaurant] = useState({
-    name: "The Golden Fork",
-    description: "Contemporary American cuisine with a farm-to-table philosophy. Fresh, seasonal ingredients prepared with passion.",
-    phone: "(555) 234-5678",
-    email: "hello@thegoldenfork.com",
-    website: "https://thegoldenfork.com",
+  const { slug } = useDashboard();
+  const { restaurant, isLoading, updateRestaurant } = useRestaurant(slug);
+
+  const [restaurantInfo, setRestaurantInfo] = useState({
+    name: "",
+    phone: "",
+    description: "",
+    email: "",
+    website: "",
   });
 
   const [address, setAddress] = useState({
-    line1: "123 Main Street",
-    line2: "Suite 100",
-    city: "New York",
-    state: "NY",
-    zip: "10001",
+    line1: "",
+    line2: "",
+    city: "",
+    state: "",
+    zip: "",
   });
 
-  const [hours, setHours] = useState(initialHours);
+  const [hours, setHours] = useState<BusinessHoursMap>(defaultBusinessHours);
 
   const [branding, setBranding] = useState({
-    logoUrl: "",
-    bannerUrl: "",
     primaryColor: "#E63946",
     secondaryColor: "#1D3557",
     accentColor: "#F4A261",
     fontFamily: "Inter",
+    logoUrl: "",
+    bannerUrl: "",
   });
 
   const [orderSettings, setOrderSettings] = useState({
     taxRate: 8.75,
     serviceFee: 0,
-    minOrderAmount: 15,
-    estimatedPrepTime: 20,
+    minOrderAmount: 0,
+    estimatedPrepTime: 25,
   });
 
   const [toggles, setToggles] = useState({
@@ -86,17 +94,107 @@ export default function SettingsPage() {
     acceptsOrders: true,
   });
 
+  // Populate local state from restaurant data once it loads
+  const loaded = useRef(false);
+  useEffect(() => {
+    if (restaurant && !loaded.current) {
+      loaded.current = true;
+
+      setRestaurantInfo({
+        name: restaurant.name ?? "",
+        phone: restaurant.phone ?? "",
+        description: restaurant.description ?? "",
+        email: restaurant.email ?? "",
+        website: restaurant.website ?? "",
+      });
+
+      setAddress({
+        line1: restaurant.addressLine1 ?? "",
+        line2: restaurant.addressLine2 ?? "",
+        city: restaurant.city ?? "",
+        state: restaurant.state ?? "",
+        zip: restaurant.zip ?? "",
+      });
+
+      // Parse business hours JSON
+      if (restaurant.businessHours) {
+        try {
+          const parsed = JSON.parse(restaurant.businessHours);
+          setHours(parsed);
+        } catch {
+          // Keep defaults
+        }
+      }
+
+      setBranding({
+        primaryColor: restaurant.primaryColor ?? "#E63946",
+        secondaryColor: restaurant.secondaryColor ?? "#1D3557",
+        accentColor: restaurant.accentColor ?? "#F4A261",
+        fontFamily: restaurant.fontFamily ?? "Inter",
+        logoUrl: "",
+        bannerUrl: "",
+      });
+
+      setOrderSettings({
+        taxRate: (restaurant.taxRate ?? 0.0875) * 100, // Convert decimal to percentage
+        serviceFee: restaurant.serviceFee ?? 0,
+        minOrderAmount: restaurant.minOrderAmount ?? 0,
+        estimatedPrepTime: restaurant.estimatedPrepTime ?? 25,
+      });
+
+      setToggles({
+        isActive: restaurant.isActive ?? true,
+        acceptsOrders: restaurant.acceptsOrders ?? true,
+      });
+    }
+  }, [restaurant]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  const handleSave = async () => {
+    if (!slug) return;
+    await updateRestaurant(slug, {
+      name: restaurantInfo.name,
+      phone: restaurantInfo.phone,
+      description: restaurantInfo.description,
+      email: restaurantInfo.email,
+      website: restaurantInfo.website,
+      addressLine1: address.line1,
+      addressLine2: address.line2,
+      city: address.city,
+      state: address.state,
+      zip: address.zip,
+      primaryColor: branding.primaryColor,
+      secondaryColor: branding.secondaryColor,
+      accentColor: branding.accentColor,
+      fontFamily: branding.fontFamily,
+      businessHours: JSON.stringify(hours),
+      taxRate: orderSettings.taxRate / 100, // Convert percentage back to decimal
+      serviceFee: orderSettings.serviceFee,
+      minOrderAmount: orderSettings.minOrderAmount,
+      estimatedPrepTime: orderSettings.estimatedPrepTime,
+      isActive: toggles.isActive,
+      acceptsOrders: toggles.acceptsOrders,
+    });
+  };
+
   const updateHour = (day: string, field: "open" | "close", value: string) => {
     setHours((prev) => ({
       ...prev,
-      [day]: { ...prev[day as keyof typeof prev], [field]: value },
+      [day]: { ...prev[day], [field]: value },
     }));
   };
 
   const toggleClosed = (day: string) => {
     setHours((prev) => ({
       ...prev,
-      [day]: { ...prev[day as keyof typeof prev], closed: !prev[day as keyof typeof prev].closed },
+      [day]: { ...prev[day], closed: !prev[day].closed },
     }));
   };
 
@@ -110,7 +208,7 @@ export default function SettingsPage() {
             Manage your restaurant profile and preferences.
           </p>
         </div>
-        <Button className="gap-2 self-start">
+        <Button className="gap-2 self-start" onClick={handleSave}>
           <Save className="h-4 w-4" />
           Save Changes
         </Button>
@@ -158,9 +256,9 @@ export default function SettingsPage() {
                   <Label htmlFor="r-name">Restaurant Name</Label>
                   <Input
                     id="r-name"
-                    value={restaurant.name}
+                    value={restaurantInfo.name}
                     onChange={(e) =>
-                      setRestaurant({ ...restaurant, name: e.target.value })
+                      setRestaurantInfo({ ...restaurantInfo, name: e.target.value })
                     }
                   />
                 </div>
@@ -168,9 +266,9 @@ export default function SettingsPage() {
                   <Label htmlFor="r-phone">Phone</Label>
                   <Input
                     id="r-phone"
-                    value={restaurant.phone}
+                    value={restaurantInfo.phone}
                     onChange={(e) =>
-                      setRestaurant({ ...restaurant, phone: e.target.value })
+                      setRestaurantInfo({ ...restaurantInfo, phone: e.target.value })
                     }
                   />
                 </div>
@@ -179,9 +277,9 @@ export default function SettingsPage() {
                 <Label htmlFor="r-desc">Description</Label>
                 <Textarea
                   id="r-desc"
-                  value={restaurant.description}
+                  value={restaurantInfo.description}
                   onChange={(e) =>
-                    setRestaurant({ ...restaurant, description: e.target.value })
+                    setRestaurantInfo({ ...restaurantInfo, description: e.target.value })
                   }
                   rows={3}
                 />
@@ -192,9 +290,9 @@ export default function SettingsPage() {
                   <Input
                     id="r-email"
                     type="email"
-                    value={restaurant.email}
+                    value={restaurantInfo.email}
                     onChange={(e) =>
-                      setRestaurant({ ...restaurant, email: e.target.value })
+                      setRestaurantInfo({ ...restaurantInfo, email: e.target.value })
                     }
                   />
                 </div>
@@ -202,9 +300,9 @@ export default function SettingsPage() {
                   <Label htmlFor="r-website">Website</Label>
                   <Input
                     id="r-website"
-                    value={restaurant.website}
+                    value={restaurantInfo.website}
                     onChange={(e) =>
-                      setRestaurant({ ...restaurant, website: e.target.value })
+                      setRestaurantInfo({ ...restaurantInfo, website: e.target.value })
                     }
                   />
                 </div>
@@ -333,8 +431,8 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {days.map((day) => {
-                  const h = hours[day as keyof typeof hours];
+                {DAYS_OF_WEEK.map((day) => {
+                  const h = hours[day] ?? { open: "11:00", close: "22:00", closed: false };
                   return (
                     <div
                       key={day}
@@ -504,7 +602,7 @@ export default function SettingsPage() {
                     className="text-lg font-bold mb-1"
                     style={{ color: branding.secondaryColor }}
                   >
-                    {restaurant.name}
+                    {restaurantInfo.name}
                   </h3>
                   <p className="text-sm text-muted-foreground mb-3">
                     Preview of your brand colors applied to your page.

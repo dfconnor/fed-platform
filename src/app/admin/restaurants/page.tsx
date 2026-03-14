@@ -39,117 +39,73 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-// --- Mock data ---
-
-interface Restaurant {
-  id: string;
-  name: string;
-  slug: string;
-  owner: string;
-  ownerEmail: string;
-  city: string;
-  state: string;
-  status: "active" | "pending" | "inactive";
-  totalOrders: number;
-  totalRevenue: number;
-  rating: number;
-  reviewCount: number;
-  joinedAt: string;
-  isActive: boolean;
-}
-
-const mockRestaurants: Restaurant[] = [
-  {
-    id: "r-1", name: "Bella Cucina", slug: "bella-cucina", owner: "Marco Rossi", ownerEmail: "marco@bellacucina.com",
-    city: "New York", state: "NY", status: "active", totalOrders: 2847, totalRevenue: 148230, rating: 4.7,
-    reviewCount: 300, joinedAt: "2023-06-15", isActive: true,
-  },
-  {
-    id: "r-2", name: "Sushi Master", slug: "sushi-master", owner: "Yuki Tanaka", ownerEmail: "yuki@sushimaster.com",
-    city: "Los Angeles", state: "CA", status: "active", totalOrders: 1923, totalRevenue: 112450, rating: 4.8,
-    reviewCount: 215, joinedAt: "2023-08-22", isActive: true,
-  },
-  {
-    id: "r-3", name: "Taco Fiesta", slug: "taco-fiesta", owner: "Carlos Mendez", ownerEmail: "carlos@tacofiesta.com",
-    city: "Austin", state: "TX", status: "active", totalOrders: 3210, totalRevenue: 95800, rating: 4.5,
-    reviewCount: 428, joinedAt: "2023-04-10", isActive: true,
-  },
-  {
-    id: "r-4", name: "Pizza Palace", slug: "pizza-palace", owner: "Tony Romano", ownerEmail: "tony@pizzapalace.com",
-    city: "Chicago", state: "IL", status: "active", totalOrders: 4150, totalRevenue: 201000, rating: 4.3,
-    reviewCount: 520, joinedAt: "2023-01-08", isActive: true,
-  },
-  {
-    id: "r-5", name: "Thai Delight", slug: "thai-delight", owner: "Narin Patel", ownerEmail: "narin@thaidelight.com",
-    city: "San Francisco", state: "CA", status: "pending", totalOrders: 0, totalRevenue: 0, rating: 0,
-    reviewCount: 0, joinedAt: "2024-03-10", isActive: false,
-  },
-  {
-    id: "r-6", name: "The Burger Joint", slug: "burger-joint", owner: "Dave Miller", ownerEmail: "dave@burgerjoint.com",
-    city: "Portland", state: "OR", status: "pending", totalOrders: 0, totalRevenue: 0, rating: 0,
-    reviewCount: 0, joinedAt: "2024-03-11", isActive: false,
-  },
-  {
-    id: "r-7", name: "Le Petit Bistro", slug: "le-petit-bistro", owner: "Sophie Dubois", ownerEmail: "sophie@lepetitbistro.com",
-    city: "New York", state: "NY", status: "active", totalOrders: 1580, totalRevenue: 134200, rating: 4.9,
-    reviewCount: 180, joinedAt: "2023-09-01", isActive: true,
-  },
-  {
-    id: "r-8", name: "Wok Express", slug: "wok-express", owner: "Li Wei", ownerEmail: "li@wokexpress.com",
-    city: "Seattle", state: "WA", status: "inactive", totalOrders: 890, totalRevenue: 42100, rating: 3.8,
-    reviewCount: 95, joinedAt: "2023-07-20", isActive: false,
-  },
-];
+import { useAdminRestaurants, type AdminRestaurant } from "@/lib/hooks/use-admin";
 
 export default function AdminRestaurantsPage() {
-  const [restaurants, setRestaurants] = useState(mockRestaurants);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
+  const {
+    restaurants,
+    isLoading,
+    updateAdminRestaurant,
+    deleteAdminRestaurant,
+  } = useAdminRestaurants(search, statusFilter);
+
+  // Derive a status for each restaurant from isActive
+  const getStatus = (r: AdminRestaurant): "active" | "pending" | "inactive" => {
+    if (r.isActive) return "active";
+    // Consider restaurants created recently without activation as pending
+    if (!r.isActive && r.createdAt) {
+      const created = new Date(r.createdAt);
+      const daysSinceCreation = (Date.now() - created.getTime()) / (1000 * 60 * 60 * 24);
+      if (daysSinceCreation < 30) return "pending";
+    }
+    return "inactive";
+  };
+
+  // Client-side filtering is handled server-side by the hook,
+  // but we also filter by owner name/email locally for the search
   const filtered = restaurants.filter((r) => {
+    const ownerName = typeof r.owner === "object" ? r.owner.name : String(r.owner ?? "");
+    const ownerEmail = typeof r.owner === "object" ? r.owner.email : "";
     const matchesSearch =
       search === "" ||
       r.name.toLowerCase().includes(search.toLowerCase()) ||
-      r.owner.toLowerCase().includes(search.toLowerCase()) ||
-      r.ownerEmail.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus =
-      statusFilter === "all" || r.status === statusFilter;
-    return matchesSearch && matchesStatus;
+      ownerName.toLowerCase().includes(search.toLowerCase()) ||
+      ownerEmail.toLowerCase().includes(search.toLowerCase());
+    return matchesSearch;
   });
 
-  const toggleActive = (id: string) => {
-    setRestaurants((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? {
-              ...r,
-              isActive: !r.isActive,
-              status: !r.isActive ? "active" : "inactive",
-            }
-          : r
-      )
-    );
+  const toggleActive = async (id: string) => {
+    const restaurant = restaurants.find((r) => r.id === id);
+    if (restaurant) {
+      await updateAdminRestaurant(id, { isActive: !restaurant.isActive });
+    }
   };
 
-  const approveRestaurant = (id: string) => {
-    setRestaurants((prev) =>
-      prev.map((r) =>
-        r.id === id ? { ...r, status: "active", isActive: true } : r
-      )
-    );
+  const approveRestaurant = async (id: string) => {
+    await updateAdminRestaurant(id, { isActive: true });
   };
 
-  const rejectRestaurant = (id: string) => {
-    setRestaurants((prev) => prev.filter((r) => r.id !== id));
+  const rejectRestaurant = async (id: string) => {
+    await deleteAdminRestaurant(id);
   };
 
   const statusCounts = {
     all: restaurants.length,
-    active: restaurants.filter((r) => r.status === "active").length,
-    pending: restaurants.filter((r) => r.status === "pending").length,
-    inactive: restaurants.filter((r) => r.status === "inactive").length,
+    active: restaurants.filter((r) => getStatus(r) === "active").length,
+    pending: restaurants.filter((r) => getStatus(r) === "pending").length,
+    inactive: restaurants.filter((r) => getStatus(r) === "inactive").length,
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-slate-400">Loading restaurants...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -220,11 +176,22 @@ export default function AdminRestaurantsPage() {
           </Card>
         )}
 
-        {filtered.map((restaurant) => (
+        {filtered.map((restaurant) => {
+          const status = getStatus(restaurant);
+          const ownerName = typeof restaurant.owner === "object" ? restaurant.owner.name : String(restaurant.owner ?? "");
+          const ownerEmail = typeof restaurant.owner === "object" ? restaurant.owner.email : "";
+          const totalOrders = (restaurant as Record<string, unknown>).totalOrders as number | undefined;
+          const totalRevenue = (restaurant as Record<string, unknown>).totalRevenue as number | undefined;
+          const rating = (restaurant as Record<string, unknown>).rating as number | undefined;
+          const reviewCount = (restaurant as Record<string, unknown>).reviewCount as number | undefined;
+          const city = (restaurant as Record<string, unknown>).city as string | undefined;
+          const state = (restaurant as Record<string, unknown>).state as string | undefined;
+
+          return (
           <Card
             key={restaurant.id}
             className={`border-slate-800 bg-slate-900 transition-colors hover:bg-slate-800/50 ${
-              restaurant.status === "pending"
+              status === "pending"
                 ? "border-amber-500/30"
                 : ""
             }`}
@@ -241,44 +208,46 @@ export default function AdminRestaurantsPage() {
                       <h3 className="text-sm font-semibold text-white truncate">
                         {restaurant.name}
                       </h3>
-                      {restaurant.status === "active" && (
+                      {status === "active" && (
                         <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
                           Active
                         </Badge>
                       )}
-                      {restaurant.status === "pending" && (
+                      {status === "pending" && (
                         <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
                           Pending
                         </Badge>
                       )}
-                      {restaurant.status === "inactive" && (
+                      {status === "inactive" && (
                         <Badge className="bg-slate-500/20 text-slate-400 border-slate-500/30">
                           Inactive
                         </Badge>
                       )}
                     </div>
                     <p className="text-xs text-slate-400">
-                      {restaurant.owner} &middot; {restaurant.ownerEmail}
+                      {ownerName} &middot; {ownerEmail}
                     </p>
                     <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
-                      <span className="flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        {restaurant.city}, {restaurant.state}
-                      </span>
-                      <span>Joined {restaurant.joinedAt}</span>
+                      {city && state && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {city}, {state}
+                        </span>
+                      )}
+                      <span>Joined {restaurant.createdAt ? new Date(restaurant.createdAt).toLocaleDateString() : "—"}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Stats */}
                 <div className="flex items-center gap-6 shrink-0">
-                  {restaurant.status !== "pending" && (
+                  {status !== "pending" && (
                     <>
                       <div className="text-center">
                         <div className="flex items-center gap-1">
                           <ShoppingBag className="h-3 w-3 text-slate-500" />
                           <span className="text-sm font-bold text-white">
-                            {restaurant.totalOrders.toLocaleString()}
+                            {(totalOrders ?? 0).toLocaleString()}
                           </span>
                         </div>
                         <p className="text-[10px] text-slate-500">Orders</p>
@@ -287,27 +256,29 @@ export default function AdminRestaurantsPage() {
                         <div className="flex items-center gap-1">
                           <DollarSign className="h-3 w-3 text-slate-500" />
                           <span className="text-sm font-bold text-white">
-                            ${(restaurant.totalRevenue / 1000).toFixed(1)}k
+                            ${((totalRevenue ?? 0) / 1000).toFixed(1)}k
                           </span>
                         </div>
                         <p className="text-[10px] text-slate-500">Revenue</p>
                       </div>
-                      <div className="text-center">
-                        <div className="flex items-center gap-1">
-                          <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
-                          <span className="text-sm font-bold text-white">
-                            {restaurant.rating}
-                          </span>
+                      {rating != null && (
+                        <div className="text-center">
+                          <div className="flex items-center gap-1">
+                            <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
+                            <span className="text-sm font-bold text-white">
+                              {rating}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-500">
+                            ({reviewCount ?? 0})
+                          </p>
                         </div>
-                        <p className="text-[10px] text-slate-500">
-                          ({restaurant.reviewCount})
-                        </p>
-                      </div>
+                      )}
                     </>
                   )}
 
                   {/* Actions */}
-                  {restaurant.status === "pending" ? (
+                  {status === "pending" ? (
                     <div className="flex items-center gap-2">
                       <Button
                         size="sm"
@@ -364,7 +335,8 @@ export default function AdminRestaurantsPage() {
               </div>
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

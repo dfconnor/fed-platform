@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { createRestaurantSchema } from "@/lib/validations";
 
 export async function GET(req: NextRequest) {
   try {
@@ -92,14 +93,16 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, slug, description, ownerId, ...rest } = body;
 
-    if (!name || !slug || !ownerId) {
+    const parsed = createRestaurantSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Name, slug, and ownerId are required" },
+        { error: "Validation failed", details: parsed.error.flatten() },
         { status: 400 }
       );
     }
+
+    const { name, slug, description, ownerId, ...rest } = parsed.data;
 
     const existingSlug = await prisma.restaurant.findUnique({
       where: { slug },

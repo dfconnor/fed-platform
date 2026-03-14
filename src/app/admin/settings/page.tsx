@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Save,
   Globe,
@@ -20,25 +20,54 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { usePlatformSettings } from "@/lib/hooks/use-admin";
 
 export default function AdminSettingsPage() {
+  const { settings: fetchedSettings, isLoading, updatePlatformSettings } = usePlatformSettings();
+
   const [settings, setSettings] = useState({
-    platformName: "Fed",
+    platformName: "",
     platformFeePercent: 2.5,
-    supportEmail: "support@getfed.com",
+    supportEmail: "",
     logoUrl: "",
   });
 
   const [saved, setSaved] = useState(false);
 
+  // Sync local state when fetched settings arrive
+  useEffect(() => {
+    if (fetchedSettings) {
+      setSettings({
+        platformName: fetchedSettings.platformName ?? "",
+        platformFeePercent: (fetchedSettings.platformFee ?? 2.5),
+        supportEmail: fetchedSettings.supportEmail ?? "",
+        logoUrl: (fetchedSettings as Record<string, unknown>).logoUrl as string ?? "",
+      });
+    }
+  }, [fetchedSettings]);
+
   const updateField = (field: string, value: string | number) => {
     setSettings((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    await updatePlatformSettings({
+      platformName: settings.platformName,
+      platformFee: settings.platformFeePercent,
+      supportEmail: settings.supportEmail,
+      logoUrl: settings.logoUrl,
+    });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-slate-400">Loading settings...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

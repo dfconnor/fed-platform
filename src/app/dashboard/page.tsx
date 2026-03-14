@@ -32,116 +32,87 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useAnalytics } from "@/lib/hooks/use-analytics";
+import { useOrders } from "@/lib/hooks/use-orders";
+import { useDashboard } from "@/lib/demo-context";
+import { ORDER_STATUS_CONFIG } from "@/lib/constants";
+import type { StatCard } from "@/lib/demo-charts";
 
-// --- Mock data ---
+// Map iconName strings to actual Lucide components
+const iconMap: Record<string, any> = { ShoppingBag, DollarSign, TrendingUp, Users };
 
-const todayStats = [
-  {
-    label: "Orders",
-    value: "47",
-    change: "+12%",
-    trend: "up" as const,
-    icon: ShoppingBag,
-    color: "text-blue-600 bg-blue-50",
-  },
-  {
-    label: "Revenue",
-    value: "$2,847",
-    change: "+8.2%",
-    trend: "up" as const,
-    icon: DollarSign,
-    color: "text-green-600 bg-green-50",
-  },
-  {
-    label: "Avg Order Value",
-    value: "$60.57",
-    change: "-3.1%",
-    trend: "down" as const,
-    icon: TrendingUp,
-    color: "text-purple-600 bg-purple-50",
-  },
-  {
-    label: "New Customers",
-    value: "14",
-    change: "+24%",
-    trend: "up" as const,
-    icon: Users,
-    color: "text-orange-600 bg-orange-50",
-  },
-];
-
-const revenueData = [
-  { day: "Mon", revenue: 1840 },
-  { day: "Tue", revenue: 2150 },
-  { day: "Wed", revenue: 1920 },
-  { day: "Thu", revenue: 2680 },
-  { day: "Fri", revenue: 3210 },
-  { day: "Sat", revenue: 3890 },
-  { day: "Sun", revenue: 2847 },
-];
-
-const recentOrders = [
-  {
-    id: "FED-A1B2C3",
-    customer: "Sarah Chen",
-    items: "Margherita Pizza, Caesar Salad",
-    total: 34.5,
-    time: "2 min ago",
-    status: "pending",
-  },
-  {
-    id: "FED-D4E5F6",
-    customer: "James Wilson",
-    items: "Spaghetti Carbonara, Tiramisu",
-    total: 42.0,
-    time: "8 min ago",
-    status: "preparing",
-  },
-  {
-    id: "FED-G7H8I9",
-    customer: "Emily Park",
-    items: "Bruschetta, Penne Arrabbiata, Gelato",
-    total: 56.75,
-    time: "15 min ago",
-    status: "ready",
-  },
-  {
-    id: "FED-J1K2L3",
-    customer: "Michael Torres",
-    items: "Risotto ai Funghi",
-    total: 24.0,
-    time: "22 min ago",
-    status: "completed",
-  },
-  {
-    id: "FED-M4N5O6",
-    customer: "Lisa Rodriguez",
-    items: "Caprese Salad, Lasagna, Red Wine",
-    total: 68.5,
-    time: "35 min ago",
-    status: "completed",
-  },
-];
-
-const popularItems = [
-  { name: "Margherita Pizza", orders: 34, revenue: 578 },
-  { name: "Spaghetti Carbonara", orders: 28, revenue: 504 },
-  { name: "Tiramisu", orders: 22, revenue: 198 },
-  { name: "Caesar Salad", orders: 19, revenue: 228 },
-  { name: "Risotto ai Funghi", orders: 16, revenue: 384 },
-];
-
-const statusConfig: Record<
-  string,
-  { label: string; variant: "warning" | "default" | "success" | "secondary" }
-> = {
-  pending: { label: "Pending", variant: "warning" },
-  preparing: { label: "Preparing", variant: "default" },
-  ready: { label: "Ready", variant: "success" },
-  completed: { label: "Completed", variant: "secondary" },
-};
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  return `${hrs}h ago`;
+}
 
 export default function DashboardOverview() {
+  const { restaurantId, ownerName } = useDashboard();
+  const { analytics, isLoading: analyticsLoading } = useAnalytics(restaurantId, "7d");
+  const { orders: allOrders, isLoading: ordersLoading } = useOrders(restaurantId);
+
+  const isLoading = analyticsLoading || ordersLoading;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  // Build stat cards from analytics data
+  const todayStats: StatCard[] = [
+    {
+      label: "Orders",
+      value: String(analytics?.totalOrders ?? 0),
+      change: "+12%",
+      trend: "up",
+      iconName: "ShoppingBag",
+      color: "text-blue-600 bg-blue-50",
+    },
+    {
+      label: "Revenue",
+      value: `$${(analytics?.totalRevenue ?? 0).toLocaleString("en-US", { minimumFractionDigits: 0 })}`,
+      change: "+8.2%",
+      trend: "up",
+      iconName: "DollarSign",
+      color: "text-green-600 bg-green-50",
+    },
+    {
+      label: "Avg Order Value",
+      value: `$${(analytics?.averageOrderValue ?? 0).toFixed(2)}`,
+      change: "-3.1%",
+      trend: "down",
+      iconName: "TrendingUp",
+      color: "text-purple-600 bg-purple-50",
+    },
+    {
+      label: "Customers",
+      value: String(analytics?.totalCustomers ?? 0),
+      change: "+24%",
+      trend: "up",
+      iconName: "Users",
+      color: "text-orange-600 bg-orange-50",
+    },
+  ];
+
+  // Revenue chart data from analytics
+  const revenueData = (analytics?.revenueByDay ?? []).map((d) => ({
+    day: new Date(d.date).toLocaleDateString("en-US", { weekday: "short" }),
+    revenue: d.revenue,
+  }));
+
+  // Top items from analytics
+  const popularItems = (analytics?.topItems ?? []).slice(0, 5);
+
+  // Recent orders (limit to 5)
+  const recentOrders = allOrders.slice(0, 5);
+
   return (
     <div className="space-y-6">
       {/* Page header */}
@@ -149,7 +120,7 @@ export default function DashboardOverview() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">
-            Welcome back, Marco. Here&apos;s what&apos;s happening today.
+            Welcome back, {ownerName}. Here&apos;s what&apos;s happening today.
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -166,7 +137,7 @@ export default function DashboardOverview() {
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {todayStats.map((stat) => {
-          const Icon = stat.icon;
+          const Icon = iconMap[stat.iconName];
           return (
             <Card key={stat.label}>
               <CardContent className="p-6">
@@ -262,10 +233,12 @@ export default function DashboardOverview() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{item.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {item.orders} orders
+                      {item.quantity} orders
                     </p>
                   </div>
-                  <span className="text-sm font-semibold">${item.revenue}</span>
+                  <span className="text-sm font-semibold">
+                    ${item.revenue.toLocaleString()}
+                  </span>
                 </div>
               ))}
             </div>
@@ -290,7 +263,10 @@ export default function DashboardOverview() {
           <CardContent>
             <div className="space-y-3">
               {recentOrders.map((order) => {
-                const config = statusConfig[order.status];
+                const config = ORDER_STATUS_CONFIG[order.status] ?? {
+                  label: order.status,
+                  variant: "secondary" as const,
+                };
                 return (
                   <div
                     key={order.id}
@@ -298,20 +274,25 @@ export default function DashboardOverview() {
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold">{order.id}</span>
+                        <span className="text-sm font-semibold">
+                          {order.id.slice(0, 12).toUpperCase()}
+                        </span>
                         <Badge variant={config.variant} className="text-[10px]">
                           {config.label}
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground truncate">
-                        {order.customer} &mdash; {order.items}
+                        {order.customerName ?? "Guest"} &mdash;{" "}
+                        {order.items.map((i) => i.name).join(", ")}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm font-semibold">
                         ${order.total.toFixed(2)}
                       </p>
-                      <p className="text-xs text-muted-foreground">{order.time}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {timeAgo(order.createdAt)}
+                      </p>
                     </div>
                   </div>
                 );

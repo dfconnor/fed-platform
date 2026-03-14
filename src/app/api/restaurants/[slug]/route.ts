@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { updateRestaurantSchema } from "@/lib/validations";
 
 export async function GET(
   req: NextRequest,
@@ -8,15 +9,21 @@ export async function GET(
   try {
     const { slug } = await params;
 
+    // When includeInactive=true (used by dashboard), return ALL categories/items.
+    // Otherwise (public menu), only return active ones.
+    const includeInactive =
+      req.nextUrl.searchParams.get("includeInactive") === "true";
+
     const restaurant = await prisma.restaurant.findUnique({
       where: { slug },
       include: {
+        owner: { select: { name: true } },
         categories: {
-          where: { isActive: true },
+          ...(includeInactive ? {} : { where: { isActive: true } }),
           orderBy: { sortOrder: "asc" },
           include: {
             items: {
-              where: { isActive: true },
+              ...(includeInactive ? {} : { where: { isActive: true } }),
               orderBy: { sortOrder: "asc" },
               include: {
                 modifierGroups: {
@@ -57,9 +64,11 @@ export async function GET(
         : 0;
 
     return NextResponse.json({
-      ...restaurant,
-      avgRating: Math.round(avgRating * 10) / 10,
-      reviewCount: restaurant.reviews.length,
+      restaurant: {
+        ...restaurant,
+        avgRating: Math.round(avgRating * 10) / 10,
+        reviewCount: restaurant.reviews.length,
+      },
     });
   } catch (error) {
     console.error("Error fetching restaurant:", error);
@@ -78,9 +87,17 @@ export async function PATCH(
     const { slug } = await params;
     const body = await req.json();
 
+    const parsed = updateRestaurantSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
     const restaurant = await prisma.restaurant.update({
       where: { slug },
-      data: body,
+      data: parsed.data,
     });
 
     return NextResponse.json({ restaurant });

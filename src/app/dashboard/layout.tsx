@@ -18,6 +18,7 @@ import {
   Store,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DashboardProvider, useDashboard } from "@/lib/demo-context";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -45,9 +46,25 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  return (
+    <DashboardProvider>
+      <DashboardLayoutInner>{children}</DashboardLayoutInner>
+    </DashboardProvider>
+  );
+}
+
+function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { restaurantName, restaurantDescription, ownerName } = useDashboard();
+
+  const ownerInitials = ownerName
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 
   const isActive = (href: string) => {
     if (href === "/dashboard") return pathname === "/dashboard";
@@ -139,7 +156,7 @@ export default function DashboardLayout({
             <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
               <Store className="h-5 w-5 text-muted-foreground" />
               <div className="flex-1 truncate">
-                <p className="text-xs font-medium">The Golden Fork</p>
+                <p className="text-xs font-medium">{restaurantName}</p>
                 <p className="text-[10px] text-muted-foreground">Premium Plan</p>
               </div>
             </div>
@@ -205,7 +222,7 @@ export default function DashboardLayout({
           <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
             <Store className="h-5 w-5 text-muted-foreground" />
             <div className="flex-1 truncate">
-              <p className="text-xs font-medium">The Golden Fork</p>
+              <p className="text-xs font-medium">{restaurantName}</p>
               <p className="text-[10px] text-muted-foreground">Premium Plan</p>
             </div>
           </div>
@@ -226,9 +243,9 @@ export default function DashboardLayout({
               <Menu className="h-5 w-5" />
             </Button>
             <div>
-              <h2 className="text-lg font-semibold">The Golden Fork</h2>
+              <h2 className="text-lg font-semibold">{restaurantName}</h2>
               <p className="text-xs text-muted-foreground hidden sm:block">
-                American Restaurant
+                {restaurantDescription.split(".")[0]}
               </p>
             </div>
           </div>
@@ -249,11 +266,11 @@ export default function DashboardLayout({
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2 px-2">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src="/avatars/owner.jpg" alt="Owner User" />
-                    <AvatarFallback className="text-xs">MR</AvatarFallback>
+                    <AvatarImage src="/avatars/owner.jpg" alt={ownerName} />
+                    <AvatarFallback className="text-xs">{ownerInitials}</AvatarFallback>
                   </Avatar>
                   <span className="hidden text-sm font-medium sm:block">
-                    Owner User
+                    {ownerName}
                   </span>
                 </Button>
               </DropdownMenuTrigger>
@@ -279,7 +296,7 @@ export default function DashboardLayout({
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-16 lg:pb-0">{children}</main>
 
         {/* Mobile bottom nav */}
         <nav className="flex items-center justify-around border-t bg-card p-2 lg:hidden">

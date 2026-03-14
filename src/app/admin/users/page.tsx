@@ -43,113 +43,52 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { useAdminUsers, type AdminUser } from "@/lib/hooks/use-admin";
+import { ROLE_BADGE_STYLES } from "@/lib/constants";
 
-// --- Mock data ---
+const roleBadgeStyles = ROLE_BADGE_STYLES;
 
-interface UserData {
-  id: string;
-  name: string;
-  email: string;
-  role: "customer" | "owner" | "admin";
-  phone: string;
-  totalOrders: number;
-  totalSpent: number;
-  joinedAt: string;
-  lastActive: string;
-  avatarInitials: string;
+/** Derive avatar initials from a user's name. */
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 }
 
-const mockUsers: UserData[] = [
-  {
-    id: "u-1", name: "Sarah Chen", email: "sarah.chen@email.com", role: "customer",
-    phone: "(555) 123-4567", totalOrders: 28, totalSpent: 1245.8, joinedAt: "2023-08-14",
-    lastActive: "2 hours ago", avatarInitials: "SC",
-  },
-  {
-    id: "u-2", name: "Marco Rossi", email: "marco@bellacucina.com", role: "owner",
-    phone: "(555) 234-5678", totalOrders: 0, totalSpent: 0, joinedAt: "2023-06-15",
-    lastActive: "10 min ago", avatarInitials: "MR",
-  },
-  {
-    id: "u-3", name: "James Wilson", email: "james.wilson@email.com", role: "customer",
-    phone: "(555) 345-6789", totalOrders: 45, totalSpent: 2890.5, joinedAt: "2023-03-22",
-    lastActive: "1 day ago", avatarInitials: "JW",
-  },
-  {
-    id: "u-4", name: "Emily Park", email: "emily.park@email.com", role: "customer",
-    phone: "(555) 456-7890", totalOrders: 12, totalSpent: 620.0, joinedAt: "2024-01-05",
-    lastActive: "3 hours ago", avatarInitials: "EP",
-  },
-  {
-    id: "u-5", name: "Yuki Tanaka", email: "yuki@sushimaster.com", role: "owner",
-    phone: "(555) 567-8901", totalOrders: 0, totalSpent: 0, joinedAt: "2023-08-22",
-    lastActive: "30 min ago", avatarInitials: "YT",
-  },
-  {
-    id: "u-6", name: "Admin User", email: "admin@getfed.com", role: "admin",
-    phone: "(555) 000-0000", totalOrders: 0, totalSpent: 0, joinedAt: "2023-01-01",
-    lastActive: "Online now", avatarInitials: "AD",
-  },
-  {
-    id: "u-7", name: "Lisa Rodriguez", email: "lisa.rod@email.com", role: "customer",
-    phone: "(555) 678-9012", totalOrders: 67, totalSpent: 4210.25, joinedAt: "2023-02-10",
-    lastActive: "5 hours ago", avatarInitials: "LR",
-  },
-  {
-    id: "u-8", name: "Michael Torres", email: "mike.torres@email.com", role: "customer",
-    phone: "(555) 789-0123", totalOrders: 8, totalSpent: 380.0, joinedAt: "2024-02-28",
-    lastActive: "2 days ago", avatarInitials: "MT",
-  },
-  {
-    id: "u-9", name: "Carlos Mendez", email: "carlos@tacofiesta.com", role: "owner",
-    phone: "(555) 890-1234", totalOrders: 0, totalSpent: 0, joinedAt: "2023-04-10",
-    lastActive: "1 hour ago", avatarInitials: "CM",
-  },
-  {
-    id: "u-10", name: "Anna Johnson", email: "anna.j@email.com", role: "customer",
-    phone: "(555) 901-2345", totalOrders: 19, totalSpent: 890.75, joinedAt: "2023-11-20",
-    lastActive: "4 hours ago", avatarInitials: "AJ",
-  },
-];
-
-const roleBadgeStyles: Record<string, string> = {
-  customer: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  owner: "bg-purple-500/20 text-purple-400 border-purple-500/30",
-  admin: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-};
-
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState(mockUsers);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<UserData | null>(null);
+  const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [newRole, setNewRole] = useState<string>("");
 
+  const {
+    users,
+    isLoading,
+    updateAdminUserRole,
+  } = useAdminUsers(search, roleFilter);
+
+  // Client-side search for name/email (hook handles server-side filtering too)
   const filtered = users.filter((u) => {
     const matchesSearch =
       search === "" ||
       u.name.toLowerCase().includes(search.toLowerCase()) ||
       u.email.toLowerCase().includes(search.toLowerCase());
-    const matchesRole = roleFilter === "all" || u.role === roleFilter;
-    return matchesSearch && matchesRole;
+    return matchesSearch;
   });
 
-  const openEditRole = (user: UserData) => {
+  const openEditRole = (user: AdminUser) => {
     setEditingUser(user);
     setNewRole(user.role);
     setEditDialogOpen(true);
   };
 
-  const saveRole = () => {
+  const saveRole = async () => {
     if (editingUser) {
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === editingUser.id
-            ? { ...u, role: newRole as UserData["role"] }
-            : u
-        )
-      );
+      await updateAdminUserRole(editingUser.id, newRole);
     }
     setEditDialogOpen(false);
   };
@@ -160,6 +99,14 @@ export default function AdminUsersPage() {
     owner: users.filter((u) => u.role === "owner").length,
     admin: users.filter((u) => u.role === "admin").length,
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-slate-400">Loading users...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -260,7 +207,7 @@ export default function AdminUsersPage() {
                           : "bg-blue-500/20 text-blue-400"
                       }`}
                     >
-                      {user.avatarInitials}
+                      {getInitials(user.name)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="min-w-0">
@@ -286,10 +233,10 @@ export default function AdminUsersPage() {
                   {user.role === "customer" ? (
                     <div>
                       <p className="text-sm font-medium text-white">
-                        {user.totalOrders} orders
+                        {(user as Record<string, unknown>).totalOrders as number ?? 0} orders
                       </p>
                       <p className="text-xs text-slate-400">
-                        ${user.totalSpent.toFixed(2)} spent
+                        ${((user as Record<string, unknown>).totalSpent as number ?? 0).toFixed(2)} spent
                       </p>
                     </div>
                   ) : (
@@ -301,9 +248,8 @@ export default function AdminUsersPage() {
                 <div className="md:col-span-2">
                   <div className="flex items-center gap-1 text-sm text-slate-300">
                     <Calendar className="h-3 w-3 text-slate-500" />
-                    {user.joinedAt}
+                    {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "—"}
                   </div>
-                  <p className="text-xs text-slate-500">{user.lastActive}</p>
                 </div>
 
                 {/* Actions */}

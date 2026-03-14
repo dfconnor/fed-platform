@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Search,
   Clock,
@@ -16,183 +16,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-// --- Mock data ---
-
-interface OrderItem {
-  name: string;
-  qty: number;
-  price: number;
-  modifiers?: string[];
-}
-
-interface Order {
-  id: string;
-  orderNumber: string;
-  customer: string;
-  phone: string;
-  email: string;
-  type: "pickup" | "delivery" | "dine_in";
-  items: OrderItem[];
-  subtotal: number;
-  tax: number;
-  total: number;
-  status: string;
-  createdAt: string;
-  notes?: string;
-  tableNumber?: string;
-}
-
-const mockOrders: Order[] = [
-  {
-    id: "1",
-    orderNumber: "FED-A1B2C3",
-    customer: "Sarah Chen",
-    phone: "(555) 123-4567",
-    email: "sarah@email.com",
-    type: "pickup",
-    items: [
-      { name: "Margherita Pizza", qty: 1, price: 17.0, modifiers: ["Extra Cheese"] },
-      { name: "Caesar Salad", qty: 1, price: 12.0 },
-      { name: "Sparkling Water", qty: 2, price: 4.0 },
-    ],
-    subtotal: 37.0,
-    tax: 3.24,
-    total: 40.24,
-    status: "pending",
-    createdAt: "2024-03-11T14:32:00Z",
-  },
-  {
-    id: "2",
-    orderNumber: "FED-D4E5F6",
-    customer: "James Wilson",
-    phone: "(555) 234-5678",
-    email: "james@email.com",
-    type: "dine_in",
-    tableNumber: "T-7",
-    items: [
-      { name: "Spaghetti Carbonara", qty: 1, price: 18.0 },
-      { name: "Tiramisu", qty: 1, price: 9.0 },
-      { name: "Espresso", qty: 2, price: 3.5 },
-    ],
-    subtotal: 34.0,
-    tax: 2.98,
-    total: 36.98,
-    status: "preparing",
-    createdAt: "2024-03-11T14:25:00Z",
-    notes: "Nut allergy - please be careful with the tiramisu",
-  },
-  {
-    id: "3",
-    orderNumber: "FED-G7H8I9",
-    customer: "Emily Park",
-    phone: "(555) 345-6789",
-    email: "emily@email.com",
-    type: "delivery",
-    items: [
-      { name: "Bruschetta", qty: 1, price: 11.0 },
-      { name: "Penne Arrabbiata", qty: 1, price: 16.0, modifiers: ["Extra Spicy"] },
-      { name: "Gelato (3 scoops)", qty: 1, price: 8.0 },
-    ],
-    subtotal: 35.0,
-    tax: 3.06,
-    total: 38.06,
-    status: "ready",
-    createdAt: "2024-03-11T14:18:00Z",
-  },
-  {
-    id: "4",
-    orderNumber: "FED-J1K2L3",
-    customer: "Michael Torres",
-    phone: "(555) 456-7890",
-    email: "mike@email.com",
-    type: "pickup",
-    items: [
-      { name: "Risotto ai Funghi", qty: 1, price: 22.0 },
-    ],
-    subtotal: 22.0,
-    tax: 1.93,
-    total: 23.93,
-    status: "completed",
-    createdAt: "2024-03-11T14:05:00Z",
-  },
-  {
-    id: "5",
-    orderNumber: "FED-M4N5O6",
-    customer: "Lisa Rodriguez",
-    phone: "(555) 567-8901",
-    email: "lisa@email.com",
-    type: "dine_in",
-    tableNumber: "T-3",
-    items: [
-      { name: "Caprese Salad", qty: 1, price: 13.0 },
-      { name: "Lasagna", qty: 1, price: 19.0 },
-      { name: "House Red Wine", qty: 1, price: 12.0 },
-    ],
-    subtotal: 44.0,
-    tax: 3.85,
-    total: 47.85,
-    status: "completed",
-    createdAt: "2024-03-11T13:48:00Z",
-  },
-  {
-    id: "6",
-    orderNumber: "FED-P7Q8R9",
-    customer: "David Kim",
-    phone: "(555) 678-9012",
-    email: "david@email.com",
-    type: "pickup",
-    items: [
-      { name: "Pepperoni Pizza", qty: 2, price: 19.0 },
-      { name: "Garlic Bread", qty: 1, price: 7.0 },
-      { name: "Coke", qty: 3, price: 3.0 },
-    ],
-    subtotal: 54.0,
-    tax: 4.73,
-    total: 58.73,
-    status: "pending",
-    createdAt: "2024-03-11T14:35:00Z",
-  },
-  {
-    id: "7",
-    orderNumber: "FED-S1T2U3",
-    customer: "Anna Müller",
-    phone: "(555) 789-0123",
-    email: "anna@email.com",
-    type: "delivery",
-    items: [
-      { name: "Four Cheese Pizza", qty: 1, price: 20.0 },
-      { name: "Minestrone Soup", qty: 1, price: 10.0 },
-    ],
-    subtotal: 30.0,
-    tax: 2.63,
-    total: 32.63,
-    status: "preparing",
-    createdAt: "2024-03-11T14:20:00Z",
-    notes: "Buzzer code: 4521",
-  },
-];
-
-const statusConfig: Record<
-  string,
-  {
-    label: string;
-    variant: "warning" | "default" | "success" | "secondary";
-    next?: string;
-    nextLabel?: string;
-  }
-> = {
-  pending: { label: "Pending", variant: "warning", next: "preparing", nextLabel: "Confirm" },
-  preparing: { label: "Preparing", variant: "default", next: "ready", nextLabel: "Mark Ready" },
-  ready: { label: "Ready", variant: "success", next: "completed", nextLabel: "Complete" },
-  completed: { label: "Completed", variant: "secondary" },
-};
-
-const typeLabels: Record<string, string> = {
-  pickup: "Pickup",
-  delivery: "Delivery",
-  dine_in: "Dine In",
-};
+import { useOrders } from "@/lib/hooks/use-orders";
+import { useDashboard } from "@/lib/demo-context";
+import { ORDER_STATUS_CONFIG, ORDER_TYPE_LABELS } from "@/lib/constants";
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -204,31 +30,32 @@ function timeAgo(dateStr: string) {
 }
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState(mockOrders);
+  const { restaurantId } = useDashboard();
+  const { orders, isLoading, updateStatus, mutate } = useOrders(restaurantId);
+
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
-  const [, setTick] = useState(0);
 
-  // Auto-refresh every 30 seconds
-  useEffect(() => {
-    const interval = setInterval(() => setTick((t) => t + 1), 30000);
-    return () => clearInterval(interval);
-  }, []);
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
 
   const filteredOrders = orders.filter((order) => {
     const matchesTab = activeTab === "all" || order.status === activeTab;
     const matchesSearch =
       search === "" ||
-      order.orderNumber.toLowerCase().includes(search.toLowerCase()) ||
-      order.customer.toLowerCase().includes(search.toLowerCase());
+      order.id.toLowerCase().includes(search.toLowerCase()) ||
+      (order.customerName ?? "").toLowerCase().includes(search.toLowerCase());
     return matchesTab && matchesSearch;
   });
 
-  const updateStatus = (orderId: string, newStatus: string) => {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
-    );
+  const handleUpdateStatus = async (orderId: string, newStatus: string) => {
+    await updateStatus(orderId, newStatus);
   };
 
   const statusCounts = {
@@ -249,7 +76,12 @@ export default function OrdersPage() {
             Manage and track incoming orders in real-time.
           </p>
         </div>
-        <Button variant="outline" size="sm" className="gap-2 self-start">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2 self-start"
+          onClick={() => mutate()}
+        >
           <RefreshCw className="h-4 w-4" />
           Refresh
         </Button>
@@ -317,7 +149,10 @@ export default function OrdersPage() {
         )}
 
         {filteredOrders.map((order) => {
-          const config = statusConfig[order.status];
+          const config = ORDER_STATUS_CONFIG[order.status] ?? {
+            label: order.status,
+            variant: "secondary" as const,
+          };
           const isExpanded = expandedOrder === order.id;
 
           return (
@@ -340,16 +175,12 @@ export default function OrdersPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono text-sm font-bold">
-                        {order.orderNumber}
+                        {order.id.slice(0, 12).toUpperCase()}
                       </span>
                       <Badge variant={config.variant}>{config.label}</Badge>
-                      <Badge variant="outline" className="text-[10px]">
-                        {typeLabels[order.type]}
-                        {order.tableNumber && ` - ${order.tableNumber}`}
-                      </Badge>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground truncate">
-                      {order.customer} &mdash;{" "}
+                      {order.customerName ?? "Guest"} &mdash;{" "}
                       {order.items.map((i) => i.name).join(", ")}
                     </p>
                   </div>
@@ -380,24 +211,21 @@ export default function OrdersPage() {
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           Customer
                         </p>
-                        <p className="text-sm font-medium">{order.customer}</p>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Phone className="h-3 w-3" />
-                          {order.phone}
-                        </div>
-                        <p className="text-xs text-muted-foreground">{order.email}</p>
-                      </div>
-                      {order.type === "delivery" && (
-                        <div className="space-y-1">
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                            Delivery Address
-                          </p>
-                          <div className="flex items-start gap-1 text-sm text-muted-foreground">
-                            <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
-                            <span>123 Main St, Apt 4B, New York, NY 10001</span>
+                        <p className="text-sm font-medium">
+                          {order.customerName ?? "Guest"}
+                        </p>
+                        {order.customerPhone && (
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Phone className="h-3 w-3" />
+                            {order.customerPhone}
                           </div>
-                        </div>
-                      )}
+                        )}
+                        {order.customerEmail && (
+                          <p className="text-xs text-muted-foreground">
+                            {order.customerEmail}
+                          </p>
+                        )}
+                      </div>
                     </div>
 
                     {/* Items */}
@@ -410,17 +238,17 @@ export default function OrdersPage() {
                           <div key={idx} className="flex items-start justify-between">
                             <div>
                               <p className="text-sm">
-                                <span className="font-medium">{item.qty}x</span>{" "}
+                                <span className="font-medium">{item.quantity}x</span>{" "}
                                 {item.name}
                               </p>
                               {item.modifiers && (
                                 <p className="text-xs text-muted-foreground ml-5">
-                                  {item.modifiers.join(", ")}
+                                  {item.modifiers}
                                 </p>
                               )}
                             </div>
                             <span className="text-sm font-medium">
-                              ${(item.qty * item.price).toFixed(2)}
+                              ${(item.quantity * item.price).toFixed(2)}
                             </span>
                           </div>
                         ))}
@@ -442,12 +270,14 @@ export default function OrdersPage() {
                     </div>
 
                     {/* Notes */}
-                    {order.notes && (
+                    {order.specialInstructions && (
                       <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-3">
                         <p className="text-xs font-medium text-yellow-800 uppercase tracking-wider mb-1">
                           Customer Notes
                         </p>
-                        <p className="text-sm text-yellow-900">{order.notes}</p>
+                        <p className="text-sm text-yellow-900">
+                          {order.specialInstructions}
+                        </p>
                       </div>
                     )}
 
@@ -455,7 +285,7 @@ export default function OrdersPage() {
                     {config.next && (
                       <div className="flex items-center gap-2 pt-1">
                         <Button
-                          onClick={() => updateStatus(order.id, config.next!)}
+                          onClick={() => handleUpdateStatus(order.id, config.next!)}
                           className="flex-1 sm:flex-none"
                         >
                           {config.nextLabel}
@@ -463,7 +293,9 @@ export default function OrdersPage() {
                         {order.status === "pending" && (
                           <Button
                             variant="destructive"
-                            onClick={() => updateStatus(order.id, "cancelled")}
+                            onClick={() =>
+                              handleUpdateStatus(order.id, "cancelled")
+                            }
                           >
                             Cancel Order
                           </Button>

@@ -41,161 +41,100 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-// --- Mock data ---
-
-interface Promotion {
-  id: string;
-  code: string;
-  description: string;
-  discountType: "percentage" | "fixed";
-  discountValue: number;
-  minOrder: number;
-  maxUses: number | null;
-  usedCount: number;
-  startsAt: string;
-  expiresAt: string;
-  isActive: boolean;
-}
-
-const initialPromos: Promotion[] = [
-  {
-    id: "p-1",
-    code: "WELCOME20",
-    description: "20% off your first order",
-    discountType: "percentage",
-    discountValue: 20,
-    minOrder: 25,
-    maxUses: 500,
-    usedCount: 187,
-    startsAt: "2024-01-01",
-    expiresAt: "2024-12-31",
-    isActive: true,
-  },
-  {
-    id: "p-2",
-    code: "PASTA10",
-    description: "$10 off any pasta order over $30",
-    discountType: "fixed",
-    discountValue: 10,
-    minOrder: 30,
-    maxUses: 200,
-    usedCount: 83,
-    startsAt: "2024-03-01",
-    expiresAt: "2024-04-30",
-    isActive: true,
-  },
-  {
-    id: "p-3",
-    code: "FRIDAY15",
-    description: "15% off Friday orders",
-    discountType: "percentage",
-    discountValue: 15,
-    minOrder: 20,
-    maxUses: null,
-    usedCount: 342,
-    startsAt: "2024-01-01",
-    expiresAt: "2024-06-30",
-    isActive: true,
-  },
-  {
-    id: "p-4",
-    code: "SUMMER5",
-    description: "$5 off summer special menu items",
-    discountType: "fixed",
-    discountValue: 5,
-    minOrder: 15,
-    maxUses: 1000,
-    usedCount: 1000,
-    startsAt: "2024-06-01",
-    expiresAt: "2024-08-31",
-    isActive: false,
-  },
-  {
-    id: "p-5",
-    code: "LOYALTY25",
-    description: "25% off for returning customers",
-    discountType: "percentage",
-    discountValue: 25,
-    minOrder: 40,
-    maxUses: 100,
-    usedCount: 12,
-    startsAt: "2024-03-01",
-    expiresAt: "2024-05-31",
-    isActive: false,
-  },
-];
-
-const emptyPromo: Omit<Promotion, "id"> = {
-  code: "",
-  description: "",
-  discountType: "percentage",
-  discountValue: 0,
-  minOrder: 0,
-  maxUses: null,
-  usedCount: 0,
-  startsAt: "",
-  expiresAt: "",
-  isActive: true,
-};
+import { usePromotions } from "@/lib/hooks/use-promotions";
+import { useDashboard } from "@/lib/demo-context";
+import { EMPTY_PROMOTION } from "@/lib/constants";
+import type { Promotion } from "@/lib/hooks/use-promotions";
 
 export default function PromotionsPage() {
-  const [promos, setPromos] = useState(initialPromos);
+  const { restaurantId } = useDashboard();
+  const {
+    promotions: promos,
+    isLoading,
+    createPromotion,
+    updatePromotion,
+    deletePromotion,
+  } = usePromotions(restaurantId);
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPromo, setEditingPromo] = useState<Promotion | null>(null);
-  const [formData, setFormData] = useState(emptyPromo);
+  const [formData, setFormData] = useState(EMPTY_PROMOTION);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
 
   const activePromos = promos.filter((p) => p.isActive);
   const inactivePromos = promos.filter((p) => !p.isActive);
-  const totalRedemptions = promos.reduce((sum, p) => sum + p.usedCount, 0);
+  const totalRedemptions = promos.reduce((sum, p) => sum + (p.usedCount ?? 0), 0);
+
+  // Helper: format ISO date string to YYYY-MM-DD for date inputs
+  const toDateInput = (dateStr: string | null): string => {
+    if (!dateStr) return "";
+    try {
+      return new Date(dateStr).toISOString().split("T")[0];
+    } catch {
+      return dateStr;
+    }
+  };
 
   const openNew = () => {
     setEditingPromo(null);
-    setFormData({ ...emptyPromo });
+    setFormData({ ...EMPTY_PROMOTION });
     setDialogOpen(true);
   };
 
   const openEdit = (promo: Promotion) => {
     setEditingPromo(promo);
     setFormData({
-      code: promo.code,
-      description: promo.description,
-      discountType: promo.discountType,
+      code: promo.code ?? "",
+      description: promo.description ?? "",
+      discountType: (promo.discountType as "percentage" | "fixed") ?? "percentage",
       discountValue: promo.discountValue,
-      minOrder: promo.minOrder,
+      minOrder: promo.minOrder ?? 0,
       maxUses: promo.maxUses,
       usedCount: promo.usedCount,
-      startsAt: promo.startsAt,
-      expiresAt: promo.expiresAt,
+      startsAt: toDateInput(promo.startsAt),
+      expiresAt: toDateInput(promo.expiresAt),
       isActive: promo.isActive,
     });
     setDialogOpen(true);
   };
 
-  const savePromo = () => {
+  const savePromo = async () => {
+    const payload = {
+      code: formData.code,
+      description: formData.description,
+      discountType: formData.discountType,
+      discountValue: formData.discountValue,
+      minOrder: formData.minOrder,
+      maxUses: formData.maxUses,
+      startsAt: formData.startsAt || null,
+      expiresAt: formData.expiresAt || null,
+      isActive: formData.isActive,
+    };
+
     if (editingPromo) {
-      setPromos((prev) =>
-        prev.map((p) =>
-          p.id === editingPromo.id ? { ...p, ...formData } : p
-        )
-      );
+      await updatePromotion(editingPromo.id, payload);
     } else {
-      setPromos((prev) => [
-        ...prev,
-        { id: `p-${Date.now()}`, ...formData },
-      ]);
+      await createPromotion(payload);
     }
     setDialogOpen(false);
   };
 
-  const toggleActive = (id: string) => {
-    setPromos((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, isActive: !p.isActive } : p))
-    );
+  const toggleActive = async (id: string) => {
+    const promo = promos.find((p) => p.id === id);
+    if (promo) {
+      await updatePromotion(id, { isActive: !promo.isActive });
+    }
   };
 
-  const deletePromo = (id: string) => {
-    setPromos((prev) => prev.filter((p) => p.id !== id));
+  const handleDeletePromo = async (id: string) => {
+    await deletePromotion(id);
   };
 
   const copyCode = (code: string) => {
@@ -266,10 +205,14 @@ export default function PromotionsPage() {
         {promos.map((promo) => {
           const usagePercent =
             promo.maxUses !== null
-              ? Math.min(100, (promo.usedCount / promo.maxUses) * 100)
+              ? Math.min(100, ((promo.usedCount ?? 0) / promo.maxUses) * 100)
               : null;
-          const isExpired = new Date(promo.expiresAt) < new Date();
-          const isMaxedOut = promo.maxUses !== null && promo.usedCount >= promo.maxUses;
+          const isExpired = promo.expiresAt ? new Date(promo.expiresAt) < new Date() : false;
+          const isMaxedOut =
+            promo.maxUses !== null && (promo.usedCount ?? 0) >= promo.maxUses;
+
+          const displayStartDate = toDateInput(promo.startsAt);
+          const displayEndDate = toDateInput(promo.expiresAt);
 
           return (
             <Card
@@ -311,11 +254,13 @@ export default function PromotionsPage() {
                       {promo.description}
                     </p>
                     <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {promo.startsAt} &mdash; {promo.expiresAt}
-                      </span>
-                      {promo.minOrder > 0 && (
+                      {(displayStartDate || displayEndDate) && (
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {displayStartDate} &mdash; {displayEndDate}
+                        </span>
+                      )}
+                      {(promo.minOrder ?? 0) > 0 && (
                         <span>Min order: ${promo.minOrder}</span>
                       )}
                     </div>
@@ -324,7 +269,7 @@ export default function PromotionsPage() {
                   {/* Usage stats */}
                   <div className="flex items-center gap-4 shrink-0">
                     <div className="text-center min-w-[80px]">
-                      <p className="text-lg font-bold">{promo.usedCount}</p>
+                      <p className="text-lg font-bold">{promo.usedCount ?? 0}</p>
                       <p className="text-[10px] text-muted-foreground">
                         {promo.maxUses !== null
                           ? `of ${promo.maxUses} uses`
@@ -364,7 +309,7 @@ export default function PromotionsPage() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => deletePromo(promo.id)}
+                        onClick={() => handleDeletePromo(promo.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>

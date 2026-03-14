@@ -12,6 +12,7 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  type LucideIcon,
 } from "lucide-react";
 import {
   Card,
@@ -32,132 +33,87 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { usePlatformAnalytics } from "@/lib/hooks/use-analytics";
+import {
+  adminSignupData,
+  adminFeeRevenueData,
+  adminRecentActivity,
+  type StatCard,
+  type ActivityItem,
+} from "@/lib/demo-charts";
 
-// --- Mock data ---
+// --- Icon map: resolve iconName strings to Lucide components ---
+const iconMap: Record<string, LucideIcon> = {
+  Store,
+  ShoppingBag,
+  DollarSign,
+  TrendingUp,
+  Users,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+};
 
-const platformStats = [
-  {
-    label: "Total Restaurants",
-    value: "38",
-    change: "+3",
-    period: "this month",
-    icon: Store,
-    color: "text-purple-400 bg-purple-500/20",
-  },
-  {
-    label: "Total Orders",
-    value: "12,847",
-    change: "+18.4%",
-    period: "vs last month",
-    icon: ShoppingBag,
-    color: "text-blue-400 bg-blue-500/20",
-  },
-  {
-    label: "Total Revenue",
-    value: "$684,230",
-    change: "+22.1%",
-    period: "vs last month",
-    icon: DollarSign,
-    color: "text-green-400 bg-green-500/20",
-  },
-  {
-    label: "Platform Fees",
-    value: "$17,106",
-    change: "+22.1%",
-    period: "2.5% of revenue",
-    icon: TrendingUp,
-    color: "text-amber-400 bg-amber-500/20",
-  },
-];
+const signupData = adminSignupData;
+const feeRevenueData = adminFeeRevenueData;
 
-const signupData = [
-  { week: "W1", restaurants: 2, users: 145 },
-  { week: "W2", restaurants: 1, users: 178 },
-  { week: "W3", restaurants: 3, users: 210 },
-  { week: "W4", restaurants: 2, users: 192 },
-  { week: "W5", restaurants: 4, users: 268 },
-  { week: "W6", restaurants: 1, users: 234 },
-  { week: "W7", restaurants: 3, users: 310 },
-  { week: "W8", restaurants: 2, users: 287 },
-];
-
-const feeRevenueData = [
-  { month: "Oct", fees: 11200 },
-  { month: "Nov", fees: 12800 },
-  { month: "Dec", fees: 14500 },
-  { month: "Jan", fees: 13200 },
-  { month: "Feb", fees: 15100 },
-  { month: "Mar", fees: 17106 },
-];
-
-const recentActivity = [
-  {
-    id: 1,
-    type: "restaurant_signup",
-    message: "New restaurant registered: Sushi Master",
-    time: "12 min ago",
-    icon: Store,
-    iconColor: "text-purple-400",
-  },
-  {
-    id: 2,
-    type: "order",
-    message: "Order FED-X9Y8Z7 completed at Bella Cucina ($67.50)",
-    time: "18 min ago",
-    icon: CheckCircle,
-    iconColor: "text-green-400",
-  },
-  {
-    id: 3,
-    type: "user_signup",
-    message: "New user registered: alex.johnson@email.com",
-    time: "25 min ago",
-    icon: Users,
-    iconColor: "text-blue-400",
-  },
-  {
-    id: 4,
-    type: "order_cancelled",
-    message: "Order FED-A2B3C4 cancelled at Pizza Palace",
-    time: "32 min ago",
-    icon: XCircle,
-    iconColor: "text-red-400",
-  },
-  {
-    id: 5,
-    type: "restaurant_approval",
-    message: "Thai Delight pending approval - submitted 2 hours ago",
-    time: "2 hr ago",
-    icon: AlertCircle,
-    iconColor: "text-amber-400",
-  },
-  {
-    id: 6,
-    type: "order",
-    message: "Order FED-D5E6F7 completed at Taco Fiesta ($34.20)",
-    time: "3 hr ago",
-    icon: CheckCircle,
-    iconColor: "text-green-400",
-  },
-  {
-    id: 7,
-    type: "restaurant_signup",
-    message: "New restaurant registered: The Burger Joint",
-    time: "5 hr ago",
-    icon: Store,
-    iconColor: "text-purple-400",
-  },
-  {
-    id: 8,
-    type: "user_signup",
-    message: "New user registered: maria.garcia@email.com",
-    time: "6 hr ago",
-    icon: Users,
-    iconColor: "text-blue-400",
-  },
-];
+const recentActivity = adminRecentActivity.map((a) => ({
+  ...a,
+  icon: iconMap[a.iconName] ?? Store,
+}));
 
 export default function AdminOverview() {
+  const { analytics, isLoading } = usePlatformAnalytics("30d");
+
+  // Build stat cards from live analytics data
+  const platformStats: (StatCard & { icon: LucideIcon })[] = analytics
+    ? [
+        {
+          label: "Total Restaurants",
+          value: String(analytics.totalRestaurants ?? 0),
+          change: "+3",
+          period: "this month",
+          iconName: "Store",
+          color: "text-purple-400 bg-purple-500/20",
+          icon: Store,
+        },
+        {
+          label: "Total Orders",
+          value: (analytics.totalOrders ?? 0).toLocaleString(),
+          change: "+18.4%",
+          period: "vs last month",
+          iconName: "ShoppingBag",
+          color: "text-blue-400 bg-blue-500/20",
+          icon: ShoppingBag,
+        },
+        {
+          label: "Total Revenue",
+          value: `$${((analytics.totalRevenue ?? 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+          change: "+22.1%",
+          period: "vs last month",
+          iconName: "DollarSign",
+          color: "text-green-400 bg-green-500/20",
+          icon: DollarSign,
+        },
+        {
+          label: "Platform Fees",
+          value: `$${((analytics.totalRevenue ?? 0) * 0.025 / 100).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+          change: "+22.1%",
+          period: "2.5% of revenue",
+          iconName: "TrendingUp",
+          color: "text-amber-400 bg-amber-500/20",
+          icon: TrendingUp,
+        },
+      ]
+    : [];
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-slate-400">Loading platform overview...</div>
+      </div>
+    );
+  }
   return (
     <div className="space-y-6">
       {/* Header */}
