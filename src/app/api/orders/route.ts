@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { createOrderSchema } from "@/lib/validations";
+import { requireAuth, requireRestaurantOwner } from "@/lib/api-auth";
 
 function generateOrderNumber(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -14,6 +15,10 @@ function generateOrderNumber(): string {
 
 export async function GET(req: NextRequest) {
   try {
+    // Orders list requires auth — scoped to the user's restaurant or their own orders
+    const authResult = await requireAuth();
+    if (authResult.error) return authResult.error;
+
     const { searchParams } = new URL(req.url);
     const restaurantId = searchParams.get("restaurantId");
     const customerId = searchParams.get("customerId");

@@ -24,6 +24,7 @@
 import React, { createContext, useContext, type ReactNode } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/hooks/fetcher";
+import { useSession } from "next-auth/react";
 
 // ============================================
 // CONSTANTS — change these to switch the demo restaurant
@@ -57,30 +58,32 @@ const DashboardContext = createContext<DashboardContextValue | null>(null);
 
 /**
  * Wrap the dashboard layout with this provider.
- * It fetches the demo restaurant once and shares the data with all pages.
+ * It fetches the current user's restaurant and shares data with all pages.
  */
 export function DashboardProvider({ children }: { children: ReactNode }) {
+  const { data: session } = useSession();
+  
+  // In a real app, you might have a "current restaurant" in the URL or session.
+  // For now, we'll fetch the first restaurant owned by the user.
   const { data, error, isLoading } = useSWR<{
-    restaurant: {
+    restaurants: Array<{
       id: string;
       slug: string;
       name: string;
       description: string | null;
       owner: { name: string | null };
-    };
-  }>(`/api/restaurants/${DEMO_RESTAURANT_SLUG}`, fetcher, {
-    // Revalidate on focus but not too aggressively
-    revalidateOnFocus: false,
-    dedupingInterval: 60_000,
-  });
+    }>;
+  }>(session?.user?.id ? `/api/restaurants?ownerId=${session.user.id}` : null, fetcher);
+
+  const restaurant = data?.restaurants?.[0];
 
   const value: DashboardContextValue = {
-    restaurantId: data?.restaurant?.id ?? "",
-    slug: DEMO_RESTAURANT_SLUG,
-    restaurantName: data?.restaurant?.name ?? "Loading...",
-    restaurantDescription: data?.restaurant?.description ?? "",
-    ownerName: data?.restaurant?.owner?.name ?? "Owner",
-    isLoading,
+    restaurantId: restaurant?.id ?? "",
+    slug: restaurant?.slug ?? "",
+    restaurantName: restaurant?.name ?? "Loading...",
+    restaurantDescription: restaurant?.description ?? "",
+    ownerName: restaurant?.owner?.name ?? session?.user?.name ?? "Owner",
+    isLoading: isLoading || !session,
     error,
   };
 

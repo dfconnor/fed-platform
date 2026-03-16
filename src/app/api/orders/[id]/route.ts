@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { updateOrderSchema } from "@/lib/validations";
+import { requireRestaurantOwner } from "@/lib/api-auth";
 
 export async function GET(
   req: NextRequest,
@@ -52,6 +53,18 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
+
+    // Verify the caller owns the restaurant this order belongs to
+    const existing = await prisma.order.findUnique({
+      where: { id },
+      select: { restaurantId: true },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+    const authResult = await requireRestaurantOwner(existing.restaurantId);
+    if (authResult.error) return authResult.error;
+
     const body = await req.json();
 
     const parsed = updateOrderSchema.safeParse(body);

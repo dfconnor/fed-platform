@@ -25,6 +25,9 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils";
 import { useCartStore } from "@/lib/store";
+import { createOrder } from "@/lib/actions";
+import { useToast } from "@/components/ui/use-toast";
+import { useEffect } from "react";
 
 /* ================================================================
    TYPES & HELPERS
@@ -68,6 +71,24 @@ const paymentMethods: {
 export default function CartPage() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
+
+  const { toast } = useToast();
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchRestaurant() {
+      try {
+        const res = await fetch(`/api/restaurants/${slug}`);
+        if (res.ok) {
+          const data = await res.json();
+          setRestaurantId(data.id);
+        }
+      } catch (err) {
+        console.error("Failed to fetch restaurant", err);
+      }
+    }
+    fetchRestaurant();
+  }, [slug]);
 
   const items = useCartStore((s) => s.items);
   const storeRemoveItem = useCartStore((s) => s.removeItem);
@@ -119,12 +140,56 @@ export default function CartPage() {
   const total = subtotal + tax + SERVICE_FEE + tipAmount - discount;
 
   async function handlePlaceOrder() {
+    if (!restaurantId) return;
+    
     setLoading(true);
-    // Simulate API call
-    await new Promise((r) => setTimeout(r, 1500));
-    const orderId = `FED-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-    clearCart();
-    router.push(`/r/${slug}/order/${orderId}`);
+    try {
+      const result = await createOrder({
+        restaurantId,
+        orderType,
+        items: items.map(item => ({
+          menuItemId: item.menuItemId,
+          quantity: item.quantity,
+          notes: item.notes,
+          modifiers: item.modifiers.map(mod => ({
+            modifierId: mod.id,
+            name: mod.name,
+            price: mod.priceAdjustment
+          }))
+        })),
+        customerName: customerInfo.name,
+        customerEmail: customerInfo.email,
+        customerPhone: customerInfo.phone,
+        tipAmount,
+        paymentMethod,
+        promoCode: promoApplied ? promoCode : undefined
+      });
+
+      if (result.success) {
+        const orderId = (result.data as { id: string }).id;
+        clearCart();
+        toast({
+          title: "Order Placed!",
+          description: "Your order has been sent to the kitchen.",
+        });
+        router.push(`/r/${slug}/order/${orderId}`);
+      } else {
+        toast({
+          title: "Order Failed",
+          description: result.error,
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      console.error("Place order error:", err);
+      toast({
+        title: "Error",
+        description: "Something went wrong while placing your order.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   }
 
   function handleApplyPromo() {

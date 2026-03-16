@@ -12,18 +12,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
+import { requireAdmin } from "@/lib/api-auth";
 
-const adminRestaurantPatchSchema = z
-  .object({
-    id: z.string().min(1),
-  })
-  .passthrough();
+const adminRestaurantPatchSchema = z.object({
+  id: z.string().min(1),
+  isActive: z.boolean().optional(),
+  name: z.string().min(1).max(200).optional(),
+  slug: z.string().min(1).max(200).optional(),
+});
 
 // ---------------------------------------------------------------------------
 // GET — List all restaurants with aggregated stats
 // ---------------------------------------------------------------------------
 export async function GET(req: NextRequest) {
   try {
+    const authResult = await requireAdmin();
+    if (authResult.error) return authResult.error;
+
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
     const search = searchParams.get("search");
@@ -97,6 +102,9 @@ export async function GET(req: NextRequest) {
 // ---------------------------------------------------------------------------
 export async function PATCH(req: NextRequest) {
   try {
+    const authResult = await requireAdmin();
+    if (authResult.error) return authResult.error;
+
     const body = await req.json();
 
     const parsed = adminRestaurantPatchSchema.safeParse(body);
@@ -129,6 +137,9 @@ export async function PATCH(req: NextRequest) {
 // ---------------------------------------------------------------------------
 export async function DELETE(req: NextRequest) {
   try {
+    const authResult = await requireAdmin();
+    if (authResult.error) return authResult.error;
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 

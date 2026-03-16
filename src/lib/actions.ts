@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { hash } from "bcryptjs";
 import { generateOrderNumber, slugify } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 
@@ -12,6 +13,61 @@ import { revalidatePath } from "next/cache";
 type ActionResult<T = unknown> =
   | { success: true; data: T }
   | { success: false; error: string };
+
+// ============================================
+// Auth Actions
+// ============================================
+
+export async function registerUser(formData: {
+  name: string;
+  email: string;
+  password: string;
+  role?: "customer" | "owner";
+}): Promise<ActionResult> {
+  try {
+    const { name, email, password, role = "customer" } = formData;
+
+    if (!email || !password || !name) {
+      return { success: false, error: "Name, email, and password are required" };
+    }
+
+    if (password.length < 8) {
+      return { success: false, error: "Password must be at least 8 characters" };
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+
+    if (existingUser) {
+      return { success: false, error: "An account with this email already exists" };
+    }
+
+    const passwordHash = await hash(password, 12);
+
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email: email.toLowerCase(),
+        passwordHash,
+        role,
+      },
+    });
+
+    return {
+      success: true,
+      data: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    };
+  } catch (error) {
+    console.error("registerUser error:", error);
+    return { success: false, error: "Failed to create account" };
+  }
+}
 
 // ============================================
 // Restaurant Actions
@@ -558,6 +614,7 @@ export async function createOrder(formData: {
   addressId?: string;
   tipAmount?: number;
   paymentMethod?: string;
+  promoCode?: string;
 }): Promise<ActionResult> {
   try {
     const session = await auth();
@@ -616,12 +673,43 @@ export async function createOrder(formData: {
       };
     });
 
-    const subtotal = orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
-    const taxAmount = Math.round(subtotal * restaurant.taxRate * 100) / 100;
+    let subtotal = orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
+    
+    // Server-side promo validation
+    let discountAmount = 0;
+    if (formData.promoCode) {
+      const promo = await prisma.promotion.findFirst({
+        where: {
+          restaurantId: formData.restaurantId,
+          code: formData.promoCode.toUpperCase(),
+          isActive: true,
+          startsAt: { lte: new Date() },
+          expiresAt: { gte: new Date() },
+        }
+      });
+
+      if (promo && subtotal >= promo.minOrder) {
+        if (promo.maxUses === null || promo.usedCount < promo.maxUses) {
+          discountAmount = promo.discountType === "percentage" 
+            ? subtotal * (promo.discountValue / 100)
+            : promo.discountValue;
+            
+          // Cap discount at subtotal
+          discountAmount = Math.min(discountAmount, subtotal);
+
+          await prisma.promotion.update({
+            where: { id: promo.id },
+            data: { usedCount: { increment: 1 } }
+          });
+        }
+      }
+    }
+
+    const taxAmount = Math.round((subtotal - discountAmount) * restaurant.taxRate * 100) / 100;
     const tipAmount = formData.tipAmount ?? 0;
     const total =
       Math.round(
-        (subtotal + taxAmount + restaurant.serviceFee + tipAmount) * 100
+        (subtotal - discountAmount + taxAmount + restaurant.serviceFee + tipAmount) * 100
       ) / 100;
 
     // Enforce minimum order
@@ -636,36 +724,71 @@ export async function createOrder(formData: {
       Date.now() + restaurant.estimatedPrepTime * 60 * 1000
     );
 
-    const order = await prisma.order.create({
-      data: {
-        orderNumber: generateOrderNumber(),
-        restaurantId: formData.restaurantId,
-        customerId: session?.user?.id ?? null,
-        status: "pending",
-        orderType: formData.orderType,
-        tableNumber: formData.tableNumber,
-        subtotal: Math.round(subtotal * 100) / 100,
-        taxAmount,
-        serviceFee: restaurant.serviceFee,
-        tipAmount,
-        total,
-        paymentMethod: formData.paymentMethod ?? "card",
-        paymentStatus: "pending",
-        customerName:
-          formData.customerName ?? session?.user?.name ?? null,
-        customerEmail:
-          formData.customerEmail ?? session?.user?.email ?? null,
-        customerPhone: formData.customerPhone ?? null,
-        customerNotes: formData.customerNotes,
-        addressId: formData.addressId ?? null,
-        estimatedReady,
-        items: {
-          create: orderItems,
+    const order = await prisma.$transaction(async (tx) => {
+      // Re-fetch promo inside transaction if it exists to ensure usedCount is accurate
+      if (formData.promoCode) {
+        const promo = await tx.promotion.findFirst({
+          where: {
+            restaurantId: formData.restaurantId,
+            code: formData.promoCode.toUpperCase(),
+            isActive: true,
+            startsAt: { lte: new Date() },
+            expiresAt: { gte: new Date() },
+          }
+        });
+
+        if (promo && subtotal >= promo.minOrder) {
+          if (promo.maxUses === null || promo.usedCount < promo.maxUses) {
+            // Re-calculate discount based on tx-level promo data
+            discountAmount = promo.discountType === "percentage" 
+              ? subtotal * (promo.discountValue / 100)
+              : promo.discountValue;
+            discountAmount = Math.min(discountAmount, subtotal);
+
+            await tx.promotion.update({
+              where: { id: promo.id },
+              data: { usedCount: { increment: 1 } }
+            });
+          }
+        }
+      }
+
+      // Recalculate totals with the tx-level discount
+      const finalTaxAmount = Math.round((subtotal - discountAmount) * restaurant.taxRate * 100) / 100;
+      const finalTotal = Math.round(
+        (subtotal - discountAmount + finalTaxAmount + restaurant.serviceFee + tipAmount) * 100
+      ) / 100;
+
+      return tx.order.create({
+        data: {
+          orderNumber: generateOrderNumber(),
+          restaurantId: formData.restaurantId,
+          customerId: session?.user?.id ?? null,
+          status: "pending",
+          orderType: formData.orderType,
+          tableNumber: formData.tableNumber,
+          subtotal: Math.round(subtotal * 100) / 100,
+          taxAmount: finalTaxAmount,
+          serviceFee: restaurant.serviceFee,
+          tipAmount,
+          discountAmount: Math.round(discountAmount * 100) / 100,
+          total: finalTotal,
+          paymentMethod: formData.paymentMethod ?? "card",
+          paymentStatus: "pending",
+          customerName: formData.customerName ?? session?.user?.name ?? null,
+          customerEmail: formData.customerEmail ?? session?.user?.email ?? null,
+          customerPhone: formData.customerPhone ?? null,
+          customerNotes: formData.customerNotes,
+          addressId: formData.addressId ?? null,
+          estimatedReady,
+          items: {
+            create: orderItems,
+          },
         },
-      },
-      include: {
-        items: { include: { modifiers: true } },
-      },
+        include: {
+          items: { include: { modifiers: true } },
+        },
+      });
     });
 
     revalidatePath("/dashboard");

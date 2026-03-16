@@ -10,12 +10,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { createPromotionSchema, updatePromotionSchema } from "@/lib/validations";
+import { requireAuth, requireRestaurantOwner } from "@/lib/api-auth";
 
 // ---------------------------------------------------------------------------
 // GET — List promotions for a restaurant
 // ---------------------------------------------------------------------------
 export async function GET(req: NextRequest) {
   try {
+    const authResult = await requireAuth();
+    if (authResult.error) return authResult.error;
+
     const { searchParams } = new URL(req.url);
     const restaurantId = searchParams.get("restaurantId");
 
@@ -69,6 +73,9 @@ export async function POST(req: NextRequest) {
       isActive,
     } = parsed.data;
 
+    const authResult = await requireRestaurantOwner(restaurantId);
+    if (authResult.error) return authResult.error;
+
     const promotion = await prisma.promotion.create({
       data: {
         restaurantId,
@@ -111,6 +118,15 @@ export async function PATCH(req: NextRequest) {
 
     const { id, ...fields } = parsed.data;
 
+    // Verify ownership via the promotion's restaurant
+    const promo = await prisma.promotion.findUnique({
+      where: { id },
+      select: { restaurantId: true },
+    });
+    if (!promo) return NextResponse.json({ error: "Promotion not found" }, { status: 404 });
+    const authResult = await requireRestaurantOwner(promo.restaurantId);
+    if (authResult.error) return authResult.error;
+
     // Coerce types for Prisma
     const data: Record<string, unknown> = { ...fields };
     if (data.code) data.code = (data.code as string).toUpperCase();
@@ -149,6 +165,15 @@ export async function DELETE(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Verify ownership
+    const promo = await prisma.promotion.findUnique({
+      where: { id },
+      select: { restaurantId: true },
+    });
+    if (!promo) return NextResponse.json({ error: "Promotion not found" }, { status: 404 });
+    const authResult = await requireRestaurantOwner(promo.restaurantId);
+    if (authResult.error) return authResult.error;
 
     await prisma.promotion.delete({ where: { id } });
 

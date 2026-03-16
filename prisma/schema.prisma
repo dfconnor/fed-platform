@@ -131,6 +131,8 @@ model Restaurant {
   orders     Order[]
   reviews    Review[]
   promos     Promotion[]
+
+  @@index([ownerId])
 }
 
 // ============================================
@@ -173,6 +175,8 @@ model MenuItem {
   category       MenuCategory    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   modifierGroups ModifierGroup[]
   orderItems     OrderItem[]
+
+  @@index([categoryId, isActive])
 }
 
 model ModifierGroup {
@@ -242,6 +246,9 @@ model Order {
   customer   User?      @relation(fields: [customerId], references: [id])
   address    Address?   @relation(fields: [addressId], references: [id])
   items      OrderItem[]
+
+  @@index([restaurantId, status, createdAt])
+  @@index([customerId])
 }
 
 model OrderItem {
@@ -300,6 +307,8 @@ model Promotion {
   isActive      Boolean  @default(true)
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, code, isActive])
 }
 
 // ============================================

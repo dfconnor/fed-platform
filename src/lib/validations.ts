@@ -51,12 +51,22 @@ export const menuPostSchema = z.discriminatedUnion("type", [
   createModifierGroupSchema,
 ]);
 
-export const menuPatchSchema = z
-  .object({
-    type: z.enum(["category", "item"]),
-    id: z.string().min(1),
-  })
-  .passthrough(); // Allow additional fields for partial updates
+export const menuPatchSchema = z.object({
+  type: z.enum(["category", "item"]),
+  id: z.string().min(1),
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().optional(),
+  price: z.coerce.number().positive().optional(),
+  imageUrl: z.string().optional(),
+  sortOrder: z.number().int().nonnegative().optional(),
+  isActive: z.boolean().optional(),
+  isPopular: z.boolean().optional(),
+  isVegetarian: z.boolean().optional(),
+  isVegan: z.boolean().optional(),
+  isGlutenFree: z.boolean().optional(),
+  isSpicy: z.boolean().optional(),
+  calories: z.coerce.number().int().nonnegative().nullable().optional(),
+});
 
 // ---- Orders ----
 export const createOrderSchema = z.object({
@@ -119,11 +129,18 @@ export const createPromotionSchema = z.object({
   isActive: z.boolean().default(true),
 });
 
-export const updatePromotionSchema = z
-  .object({
-    id: z.string().min(1),
-  })
-  .passthrough();
+export const updatePromotionSchema = z.object({
+  id: z.string().min(1),
+  code: z.string().min(1).max(50).optional(),
+  description: z.string().optional(),
+  discountType: z.enum(["percentage", "fixed"]).optional(),
+  discountValue: z.coerce.number().positive().optional(),
+  minOrder: z.coerce.number().nonnegative().optional(),
+  maxUses: z.coerce.number().int().positive().nullable().optional(),
+  startsAt: z.string().optional(),
+  expiresAt: z.string().optional(),
+  isActive: z.boolean().optional(),
+});
 
 // ---- Restaurant ----
 export const createRestaurantSchema = z.object({
@@ -134,7 +151,34 @@ export const createRestaurantSchema = z.object({
   cuisine: z.string().optional(),
 });
 
-export const updateRestaurantSchema = z.object({}).passthrough(); // flexible partial updates
+export const updateRestaurantSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  slug: z.string().min(1).max(200).optional(),
+  description: z.string().optional(),
+  cuisine: z.string().optional(),
+  phone: z.string().optional().nullable(),
+  email: z.string().email().optional().nullable(),
+  website: z.string().url().optional().or(z.literal("")).nullable(),
+  logoUrl: z.string().optional().nullable(),
+  bannerUrl: z.string().optional().nullable(),
+  addressLine1: z.string().optional().nullable(),
+  addressLine2: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  state: z.string().optional().nullable(),
+  zip: z.string().optional().nullable(),
+  primaryColor: z.string().optional(),
+  secondaryColor: z.string().optional(),
+  accentColor: z.string().optional(),
+  fontFamily: z.string().optional(),
+  isActive: z.boolean().optional(),
+  acceptsOrders: z.boolean().optional(),
+  taxRate: z.coerce.number().min(0).max(1).optional(),
+  serviceFee: z.coerce.number().min(0).optional(),
+  minOrderAmount: z.coerce.number().min(0).optional(),
+  estimatedPrepTime: z.coerce.number().int().positive().optional(),
+  businessHours: z.string().optional(),
+  stripeAccountId: z.string().optional().nullable(),
+});
 
 // ---- Admin ----
 export const updateUserRoleSchema = z.object({

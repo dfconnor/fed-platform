@@ -105,6 +105,7 @@ export async function GET(req: NextRequest) {
           totalRevenue: Math.round(totalRevenue * 100) / 100,
           totalOrders,
           avgOrderValue: Math.round(avgOrderValue * 100) / 100,
+          averageOrderValue: Math.round(avgOrderValue * 100) / 100,
           completedOrders,
           completionRate:
             totalOrders > 0

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { menuPostSchema, menuPatchSchema } from "@/lib/validations";
+import { requireRestaurantOwner } from "@/lib/api-auth";
 
-// Create or update menu category
+// Create menu category, item, or modifier group
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -20,6 +21,9 @@ export async function POST(req: NextRequest) {
     if (data.type === "category") {
       const { restaurantId, name, description, imageUrl, sortOrder } = data;
 
+      const authResult = await requireRestaurantOwner(restaurantId);
+      if (authResult.error) return authResult.error;
+
       const category = await prisma.menuCategory.create({
         data: {
           restaurantId,
@@ -34,6 +38,17 @@ export async function POST(req: NextRequest) {
     }
 
     if (data.type === "item") {
+      // Verify ownership via the category's restaurant
+      const category = await prisma.menuCategory.findUnique({
+        where: { id: data.categoryId },
+        select: { restaurantId: true },
+      });
+      if (!category) {
+        return NextResponse.json({ error: "Category not found" }, { status: 404 });
+      }
+      const authResult = await requireRestaurantOwner(category.restaurantId);
+      if (authResult.error) return authResult.error;
+
       const {
         categoryId,
         name,
@@ -70,6 +85,17 @@ export async function POST(req: NextRequest) {
     }
 
     if (data.type === "modifier_group") {
+      // Verify ownership via the item's category's restaurant
+      const menuItem = await prisma.menuItem.findUnique({
+        where: { id: data.menuItemId },
+        include: { category: { select: { restaurantId: true } } },
+      });
+      if (!menuItem) {
+        return NextResponse.json({ error: "Menu item not found" }, { status: 404 });
+      }
+      const authResult = await requireRestaurantOwner(menuItem.category.restaurantId);
+      if (authResult.error) return authResult.error;
+
       const { menuItemId, name, required, minSelect, maxSelect, modifiers } = data;
 
       const group = await prisma.modifierGroup.create({
@@ -126,6 +152,15 @@ export async function PATCH(req: NextRequest) {
     const { type, id, ...data } = parsed.data;
 
     if (type === "category") {
+      // Verify ownership
+      const cat = await prisma.menuCategory.findUnique({
+        where: { id },
+        select: { restaurantId: true },
+      });
+      if (!cat) return NextResponse.json({ error: "Category not found" }, { status: 404 });
+      const authResult = await requireRestaurantOwner(cat.restaurantId);
+      if (authResult.error) return authResult.error;
+
       const category = await prisma.menuCategory.update({
         where: { id },
         data,
@@ -134,8 +169,14 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (type === "item") {
-      if (data.price) data.price = parseFloat(data.price as string);
-      if (data.calories) data.calories = parseInt(data.calories as string);
+      // Verify ownership
+      const menuItem = await prisma.menuItem.findUnique({
+        where: { id },
+        include: { category: { select: { restaurantId: true } } },
+      });
+      if (!menuItem) return NextResponse.json({ error: "Item not found" }, { status: 404 });
+      const authResult = await requireRestaurantOwner(menuItem.category.restaurantId);
+      if (authResult.error) return authResult.error;
 
       const item = await prisma.menuItem.update({
         where: { id },
@@ -167,11 +208,36 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
+    // Verify ownership before deleting
     if (type === "category") {
+      const cat = await prisma.menuCategory.findUnique({
+        where: { id },
+        select: { restaurantId: true },
+      });
+      if (!cat) return NextResponse.json({ error: "Category not found" }, { status: 404 });
+      const authResult = await requireRestaurantOwner(cat.restaurantId);
+      if (authResult.error) return authResult.error;
+
       await prisma.menuCategory.delete({ where: { id } });
     } else if (type === "item") {
+      const item = await prisma.menuItem.findUnique({
+        where: { id },
+        include: { category: { select: { restaurantId: true } } },
+      });
+      if (!item) return NextResponse.json({ error: "Item not found" }, { status: 404 });
+      const authResult = await requireRestaurantOwner(item.category.restaurantId);
+      if (authResult.error) return authResult.error;
+
       await prisma.menuItem.delete({ where: { id } });
     } else if (type === "modifier_group") {
+      const group = await prisma.modifierGroup.findUnique({
+        where: { id },
+        include: { menuItem: { include: { category: { select: { restaurantId: true } } } } },
+      });
+      if (!group) return NextResponse.json({ error: "Modifier group not found" }, { status: 404 });
+      const authResult = await requireRestaurantOwner(group.menuItem.category.restaurantId);
+      if (authResult.error) return authResult.error;
+
       await prisma.modifierGroup.delete({ where: { id } });
     } else {
       return NextResponse.json({ error: "Invalid type" }, { status: 400 });

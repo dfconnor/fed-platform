@@ -8,12 +8,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { updatePlatformSettingsSchema } from "@/lib/validations";
+import { requireAdmin } from "@/lib/api-auth";
 
 // ---------------------------------------------------------------------------
 // GET — Fetch the platform settings record
 // ---------------------------------------------------------------------------
 export async function GET() {
   try {
+    const authResult = await requireAdmin();
+    if (authResult.error) return authResult.error;
+
     // Always fetch (or create) the single "default" row
     let settings = await prisma.platformSettings.findUnique({
       where: { id: "default" },
@@ -46,6 +50,9 @@ export async function GET() {
 // ---------------------------------------------------------------------------
 export async function PATCH(req: NextRequest) {
   try {
+    const authResult = await requireAdmin();
+    if (authResult.error) return authResult.error;
+
     const body = await req.json();
 
     const parsed = updatePlatformSettingsSchema.safeParse(body);

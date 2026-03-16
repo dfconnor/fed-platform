@@ -16,6 +16,7 @@ import {
   User,
   Shield,
 } from "lucide-react";
+import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { AdminProvider, useAdminContext } from "@/lib/demo-context";
 import { Button } from "@/components/ui/button";
@@ -277,7 +278,10 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                   Settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator className="bg-slate-700" />
-                <DropdownMenuItem className="text-red-400 focus:bg-slate-700 focus:text-red-300">
+                <DropdownMenuItem 
+                  className="text-red-400 focus:bg-slate-700 focus:text-red-300"
+                  onSelect={() => signOut({ callbackUrl: "/auth/login" })}
+                >
                   <LogOut className="mr-2 h-4 w-4" />
                   Sign out
                 </DropdownMenuItem>

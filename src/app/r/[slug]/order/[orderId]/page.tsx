@@ -15,18 +15,20 @@ import {
   Copy,
   Check,
   UtensilsCrossed,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils";
 
 /* ================================================================
-   TYPES & MOCK DATA
+   STATUS TRACKER
    ================================================================ */
 
 const statuses = [
   {
-    key: "received",
+    key: "pending",
     label: "Order Received",
     icon: CheckCircle2,
     description: "Your order has been confirmed",
@@ -44,8 +46,8 @@ const statuses = [
     description: "Your order is ready for pickup",
   },
   {
-    key: "picked_up",
-    label: "Picked Up",
+    key: "completed",
+    label: "Complete",
     icon: ShoppingBag,
     description: "Enjoy your meal!",
   },
@@ -54,56 +56,130 @@ const statuses = [
 type StatusKey = (typeof statuses)[number]["key"];
 
 /* ================================================================
+   TYPES
+   ================================================================ */
+
+type OrderItem = {
+  id: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  notes?: string | null;
+  menuItem: { name: string; imageUrl?: string | null };
+  modifiers: Array<{ name: string; price: number }>;
+};
+
+type OrderData = {
+  id: string;
+  orderNumber: string;
+  status: string;
+  orderType: string;
+  subtotal: number;
+  taxAmount: number;
+  serviceFee: number;
+  deliveryFee: number;
+  tipAmount: number;
+  discountAmount: number;
+  total: number;
+  estimatedReady: string | null;
+  items: OrderItem[];
+  restaurant: {
+    name: string;
+    slug: string;
+    phone: string | null;
+    primaryColor: string | null;
+  };
+};
+
+/* ================================================================
    COMPONENT
    ================================================================ */
 
 export default function OrderConfirmationPage() {
   const { slug, orderId } = useParams<{ slug: string; orderId: string }>();
-  const [currentStatus, setCurrentStatus] = useState<StatusKey>("received");
+  const [order, setOrder] = useState<OrderData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const restaurantName = slug
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-
-  // Simulated status progression
+  // Fetch order data
   useEffect(() => {
-    const timers = [
-      setTimeout(() => setCurrentStatus("preparing"), 3000),
-      setTimeout(() => setCurrentStatus("ready"), 8000),
-    ];
-    return () => timers.forEach(clearTimeout);
-  }, []);
+    async function fetchOrder() {
+      try {
+        const res = await fetch(`/api/orders/${orderId}`);
+        if (!res.ok) {
+          setError("Order not found");
+          return;
+        }
+        const data = await res.json();
+        setOrder(data.order);
+      } catch {
+        setError("Failed to load order");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchOrder();
+  }, [orderId]);
 
+  // Poll for status updates every 15s
+  useEffect(() => {
+    if (!order || order.status === "completed" || order.status === "delivered")
+      return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/orders/${orderId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setOrder(data.order);
+        }
+      } catch {
+        // Silently continue polling
+      }
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [orderId, order?.status]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error || !order) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4">
+        <AlertCircle className="h-12 w-12 text-destructive" />
+        <h1 className="text-xl font-bold">{error || "Order not found"}</h1>
+        <Link href={`/r/${slug}`}>
+          <Button>Back to Restaurant</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  const currentStatus = (order.status as StatusKey) || "pending";
   const currentStatusIndex = statuses.findIndex(
     (s) => s.key === currentStatus
   );
 
-  const estimatedTime = new Date();
-  estimatedTime.setMinutes(estimatedTime.getMinutes() + 25);
-  const timeString = estimatedTime.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const estimatedTime = order.estimatedReady
+    ? new Date(order.estimatedReady).toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : null;
 
   function handleCopyOrderId() {
-    navigator.clipboard.writeText(orderId).then(() => {
+    navigator.clipboard.writeText(order!.orderNumber).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
   }
-
-  // Mock order items
-  const orderItems = [
-    { name: "Tonkotsu Ramen", quantity: 1, price: 16.95 },
-    { name: "Gyoza (6 pcs)", quantity: 2, price: 8.95 },
-    { name: "Matcha Latte", quantity: 1, price: 5.5 },
-  ];
-  const subtotal = orderItems.reduce(
-    (s, i) => s + i.price * i.quantity,
-    0
-  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -120,14 +196,14 @@ export default function OrderConfirmationPage() {
             Order Confirmed!
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Thank you for ordering from {restaurantName}
+            Thank you for ordering from {order.restaurant.name}
           </p>
 
           {/* Order ID */}
           <div className="mt-5 inline-flex items-center gap-2 rounded-xl border bg-card px-5 py-3 shadow-sm">
             <span className="text-sm text-muted-foreground">Order #</span>
             <span className="font-mono text-lg font-bold tracking-wider">
-              {orderId}
+              {order.orderNumber}
             </span>
             <button
               onClick={handleCopyOrderId}
@@ -142,11 +218,15 @@ export default function OrderConfirmationPage() {
           </div>
 
           {/* Estimated time */}
-          <div className="mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Clock className="h-4 w-4" />
-            Estimated ready by{" "}
-            <span className="font-semibold text-foreground">{timeString}</span>
-          </div>
+          {estimatedTime && (
+            <div className="mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Clock className="h-4 w-4" />
+              Estimated ready by{" "}
+              <span className="font-semibold text-foreground">
+                {estimatedTime}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -162,7 +242,6 @@ export default function OrderConfirmationPage() {
 
               return (
                 <div key={status.key} className="flex gap-4 pb-8 last:pb-0">
-                  {/* Vertical line + dot */}
                   <div className="relative flex flex-col items-center">
                     <div
                       className={cn(
@@ -187,7 +266,6 @@ export default function OrderConfirmationPage() {
                     )}
                   </div>
 
-                  {/* Text */}
                   <div className="pt-1.5">
                     <p
                       className={cn(
@@ -202,7 +280,7 @@ export default function OrderConfirmationPage() {
                     <p className="mt-0.5 text-sm text-muted-foreground">
                       {status.description}
                     </p>
-                    {isCurrent && currentStatus !== "picked_up" && (
+                    {isCurrent && currentStatus !== "completed" && (
                       <div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-success">
                         <div className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
                         In progress
@@ -215,31 +293,67 @@ export default function OrderConfirmationPage() {
           </div>
         </div>
 
-        {/* ---- Order Details ---- */}
+        {/* ---- Order Details (real data) ---- */}
         <div className="mt-6 rounded-2xl border bg-card p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold">Order Details</h2>
           <div className="space-y-3">
-            {orderItems.map((item, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between text-sm"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-xs font-semibold">
-                    {item.quantity}
+            {order.items.map((item) => (
+              <div key={item.id}>
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-xs font-semibold">
+                      {item.quantity}
+                    </span>
+                    <span>{item.menuItem.name}</span>
+                  </div>
+                  <span className="font-medium">
+                    {formatCurrency(item.totalPrice)}
                   </span>
-                  <span>{item.name}</span>
                 </div>
-                <span className="font-medium">
-                  {formatCurrency(item.price * item.quantity)}
-                </span>
+                {item.modifiers.length > 0 && (
+                  <div className="ml-8 mt-1 text-xs text-muted-foreground">
+                    {item.modifiers.map((m) => m.name).join(", ")}
+                  </div>
+                )}
               </div>
             ))}
           </div>
-          <div className="mt-4 border-t pt-3">
-            <div className="flex items-center justify-between font-semibold">
-              <span>Subtotal</span>
-              <span>{formatCurrency(subtotal)}</span>
+          <div className="mt-4 space-y-1.5 border-t pt-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span>{formatCurrency(order.subtotal)}</span>
+            </div>
+            {order.discountAmount > 0 && (
+              <div className="flex justify-between text-success">
+                <span>Discount</span>
+                <span>-{formatCurrency(order.discountAmount)}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Tax</span>
+              <span>{formatCurrency(order.taxAmount)}</span>
+            </div>
+            {order.serviceFee > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Service fee</span>
+                <span>{formatCurrency(order.serviceFee)}</span>
+              </div>
+            )}
+            {order.deliveryFee > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Delivery fee</span>
+                <span>{formatCurrency(order.deliveryFee)}</span>
+              </div>
+            )}
+            {order.tipAmount > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Tip</span>
+                <span>{formatCurrency(order.tipAmount)}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between border-t pt-2 font-semibold">
+              <span>Total</span>
+              <span>{formatCurrency(order.total)}</span>
             </div>
           </div>
         </div>
@@ -253,24 +367,22 @@ export default function OrderConfirmationPage() {
                 <UtensilsCrossed className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <p className="font-medium">{restaurantName}</p>
-                <p className="text-muted-foreground">Pickup order</p>
+                <p className="font-medium">{order.restaurant.name}</p>
+                <p className="text-muted-foreground capitalize">
+                  {order.orderType.replace("_", " ")} order
+                </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-                <MapPin className="h-4 w-4 text-muted-foreground" />
+            {order.restaurant.phone && (
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <span className="text-muted-foreground">
+                  {order.restaurant.phone}
+                </span>
               </div>
-              <span className="text-muted-foreground">
-                123 Cherry Blossom Ave, Suite 4
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <span className="text-muted-foreground">(555) 234-5678</span>
-            </div>
+            )}
           </div>
         </div>
 

@@ -8,12 +8,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { updateUserRoleSchema } from "@/lib/validations";
+import { requireAdmin } from "@/lib/api-auth";
 
 // ---------------------------------------------------------------------------
 // GET — List all users with aggregated stats
 // ---------------------------------------------------------------------------
 export async function GET(req: NextRequest) {
   try {
+    const authResult = await requireAdmin();
+    if (authResult.error) return authResult.error;
+
     const { searchParams } = new URL(req.url);
     const role = searchParams.get("role");
     const search = searchParams.get("search");
@@ -79,6 +83,9 @@ export async function GET(req: NextRequest) {
 // ---------------------------------------------------------------------------
 export async function PATCH(req: NextRequest) {
   try {
+    const authResult = await requireAdmin();
+    if (authResult.error) return authResult.error;
+
     const body = await req.json();
 
     const parsed = updateUserRoleSchema.safeParse(body);

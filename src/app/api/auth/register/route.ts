@@ -15,7 +15,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { name, email, password, role } = parsed.data;
+    const { name, email, password } = parsed.data;
+    // Role is always "customer" at registration. Only admins can promote users.
 
     const existingUser = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
         name,
         email: email.toLowerCase(),
         passwordHash,
-        role,
+        role: "customer",
       },
     });
 

@@ -17,6 +17,7 @@ import {
   User,
   Store,
 } from "lucide-react";
+import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { DashboardProvider, useDashboard } from "@/lib/demo-context";
 import { Button } from "@/components/ui/button";
@@ -286,7 +287,10 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
                   Settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive">
+                <DropdownMenuItem 
+                  className="text-destructive"
+                  onSelect={() => signOut({ callbackUrl: "/auth/login" })}
+                >
                   <LogOut className="mr-2 h-4 w-4" />
                   Sign out
                 </DropdownMenuItem>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { Eye, EyeOff, UtensilsCrossed, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,16 +42,17 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+      const res = await signIn("credentials", {
+        email: form.email,
+        password: form.password,
+        redirect: false,
       });
-      if (res.ok) {
-        router.push("/");
+
+      if (res?.error) {
+        setErrors({ form: "Invalid credentials. Please try again." });
       } else {
-        const data = await res.json().catch(() => ({}));
-        setErrors({ form: data.error || "Invalid credentials. Please try again." });
+        router.push("/");
+        router.refresh();
       }
     } catch {
       setErrors({ form: "Something went wrong. Please try again." });
@@ -175,7 +177,12 @@ export default function LoginPage() {
             </div>
 
             {/* OAuth */}
-            <Button variant="outline" className="w-full gap-2" size="lg">
+            <Button 
+              variant="outline" 
+              className="w-full gap-2" 
+              size="lg"
+              onClick={() => signIn("google", { callbackUrl: "/" })}
+            >
               <svg className="h-5 w-5" viewBox="0 0 24 24">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"

@@ -6,12 +6,13 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search") || "";
+    const ownerId = searchParams.get("ownerId");
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
     const skip = (page - 1) * limit;
 
-    const where = {
-      isActive: true,
+    const where: any = {
+      ...(ownerId ? { ownerId } : { isActive: true }),
       ...(search
         ? {
             OR: [
@@ -30,6 +31,7 @@ export async function GET(req: NextRequest) {
         take: limit,
         orderBy: { createdAt: "desc" },
         include: {
+          owner: { select: { name: true } },
           categories: {
             include: {
               items: {
@@ -74,6 +76,7 @@ export async function GET(req: NextRequest) {
         reviewCount: r.reviews.length,
         itemCount,
         orderCount: r._count.orders,
+        owner: r.owner,
       };
     });
 

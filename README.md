@@ -34,6 +34,23 @@ A modern, mobile-first restaurant ordering platform that lets restaurants keep 1
 - User management with role-based access
 - Platform settings and fee configuration
 
+## Current Status & Security Note
+
+**⚠️ SECURITY WARNING:** This platform is currently in a security-hardening phase. While many core security issues (unauthenticated API routes, broken login, insecure schemas) have been addressed, it is not yet production-ready.
+
+### What's Real:
+- **Authentication:** Full NextAuth v5 implementation with Credentials and Google OAuth.
+- **Route Protection:** Global middleware guarding `/dashboard` and `/admin`.
+- **Order Flow:** Orders are server-validated and saved to the database via secure Server Actions.
+- **Promo System:** Atomic server-side promo validation and usage tracking.
+- **Multi-tenancy:** Dashboard and analytics are keyed to the authenticated user's session.
+
+### What's Mocked/Pending:
+- **Payments:** Stripe is currently in demo mode (`pi_demo_` secrets). Real SDK integration is pending webhook implementation.
+- **Analytics:** Data is aggregated in real-time from the database. For large-scale production, a pre-aggregated analytics table/view is recommended.
+- **Emails:** Order confirmation emails are stubbed with console logs.
+- **Images:** S3/Cloudinary integration is mocked; using placeholder URLs.
+
 ## Tech Stack
 
 - **Frontend:** Next.js 16 (App Router, Turbopack), TypeScript, Tailwind CSS v4
