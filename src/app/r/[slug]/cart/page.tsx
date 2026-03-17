@@ -33,15 +33,12 @@ import { useEffect } from "react";
    TYPES & HELPERS
    ================================================================ */
 
-type OrderType = "pickup" | "dinein" | "delivery";
+type OrderType = "pickup" | "dine_in" | "delivery";
 type PaymentMethod = "card" | "apple_pay" | "google_pay" | "paypal" | "venmo";
-
-const TAX_RATE = 0.0875;
-const SERVICE_FEE = 0.49; // Fed's ultra-low platform fee — competitors charge $1.99-$3.99
 
 const orderTypes: { value: OrderType; label: string; icon: typeof MapPin }[] = [
   { value: "pickup", label: "Pickup", icon: ShoppingBag },
-  { value: "dinein", label: "Dine-in", icon: UtensilsCrossed },
+  { value: "dine_in", label: "Dine-in", icon: UtensilsCrossed },
   { value: "delivery", label: "Delivery", icon: Truck },
 ];
 
@@ -74,6 +71,8 @@ export default function CartPage() {
 
   const { toast } = useToast();
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const [taxRate, setTaxRate] = useState(0.0875);
+  const [serviceFee, setServiceFee] = useState(0);
 
   useEffect(() => {
     async function fetchRestaurant() {
@@ -82,6 +81,8 @@ export default function CartPage() {
         if (res.ok) {
           const data = await res.json();
           setRestaurantId(data.id);
+          setTaxRate(data.taxRate ?? 0.0875);
+          setServiceFee(data.serviceFee ?? 0);
         }
       } catch (err) {
         console.error("Failed to fetch restaurant", err);
@@ -131,13 +132,13 @@ export default function CartPage() {
     storeUpdateNotes(cartItemId, notes);
   }
 
-  // Calculations
-  const tax = subtotal * TAX_RATE;
+  // Calculations — tax and service fee from restaurant settings
+  const tax = subtotal * taxRate;
   const tipAmount = showCustomTip
     ? parseFloat(customTip) || 0
     : subtotal * selectedTip;
   const discount = promoApplied ? subtotal * 0.1 : 0;
-  const total = subtotal + tax + SERVICE_FEE + tipAmount - discount;
+  const total = subtotal + tax + serviceFee + tipAmount - discount;
 
   async function handlePlaceOrder() {
     if (!restaurantId) return;
@@ -192,9 +193,27 @@ export default function CartPage() {
     }
   }
 
-  function handleApplyPromo() {
-    if (promoCode.toUpperCase() === "FED10") {
-      setPromoApplied(true);
+  async function handleApplyPromo() {
+    if (!promoCode.trim() || !restaurantId) return;
+    try {
+      const res = await fetch(
+        `/api/promotions?restaurantId=${restaurantId}&code=${encodeURIComponent(promoCode)}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const promo = data.promotions?.find(
+          (p: { code: string; isActive: boolean }) =>
+            p.code === promoCode.toUpperCase() && p.isActive
+        );
+        if (promo) {
+          setPromoApplied(true);
+          toast({ title: "Promo Applied!", description: `${promo.code}: ${promo.description || "Discount applied"}` });
+        } else {
+          toast({ title: "Invalid Code", description: "This promo code is not valid.", variant: "destructive" });
+        }
+      }
+    } catch {
+      toast({ title: "Error", description: "Could not validate promo code.", variant: "destructive" });
     }
   }
 
@@ -468,7 +487,7 @@ export default function CartPage() {
                 {promoApplied && (
                   <div className="mt-2 flex items-center justify-between rounded-lg bg-success/10 px-3 py-2 text-sm">
                     <span className="font-medium text-success">
-                      FED10 applied: 10% off
+                      {promoCode.toUpperCase()} applied
                     </span>
                     <button
                       onClick={() => {
@@ -537,10 +556,12 @@ export default function CartPage() {
                     <span className="text-muted-foreground">Tax</span>
                     <span>{formatCurrency(tax)}</span>
                   </div>
+                  {serviceFee > 0 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Service fee</span>
-                    <span>{formatCurrency(SERVICE_FEE)}</span>
+                    <span>{formatCurrency(serviceFee)}</span>
                   </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Tip</span>
                     <span>{formatCurrency(tipAmount)}</span>
