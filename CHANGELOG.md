@@ -4,6 +4,13 @@ All notable changes to the Fed platform are documented here.
 
 ## [Unreleased] — Security & Architecture Hardening
 
+### Infrastructure
+- **Migrated from SQLite/libSQL to PostgreSQL** (Neon serverless Postgres)
+- **Vercel deployment** with staging (preview) and production environments
+- Removed `@libsql/client` and `@prisma/adapter-libsql` dependencies
+- Added `DIRECT_URL` for Prisma migrations (bypasses connection pooler)
+- Updated seed script to use standard Prisma client (no adapter)
+
 ### Added
 - **NextAuth route handler** (`/api/auth/[...nextauth]`) — login, logout, and OAuth callbacks now functional
 - **API auth guards** — all mutable API routes now require authentication via `src/lib/api-auth.ts`
