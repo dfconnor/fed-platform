@@ -54,7 +54,7 @@ A modern, mobile-first restaurant ordering platform that lets restaurants keep 1
 ## Tech Stack
 
 - **Frontend:** Next.js 16 (App Router, Turbopack), TypeScript, Tailwind CSS v4
-- **Backend:** Next.js API Routes, Prisma 7 with SQLite (LibSQL adapter)
+- **Backend:** Next.js API Routes, Prisma 7 with Neon Postgres (PrismaPg adapter)
 - **Auth:** NextAuth v5 (credentials + OAuth ready)
 - **Payments:** Stripe (demo mode, ready for live keys)
 - **UI:** Radix UI primitives, Recharts for analytics
@@ -72,11 +72,12 @@ A modern, mobile-first restaurant ordering platform that lets restaurants keep 1
 # Install dependencies
 npm install
 
-# Generate Prisma client
-npx prisma generate
+# Copy env template and fill in your Neon connection strings
+cp .env.example .env
+# Edit .env with your DATABASE_URL and DIRECT_URL from Neon
 
-# Create and seed the database
-npx prisma db push
+# Run migrations and seed the database
+npx prisma migrate deploy
 npm run db:seed
 
 # Start the dev server
@@ -111,7 +112,7 @@ src/
     api/                  # API routes (restaurants, orders, menu, analytics, stripe)
   components/ui/          # Radix-based UI components
   lib/
-    db.ts                 # Prisma client (LibSQL adapter)
+    db.ts                 # Prisma client (PrismaPg adapter)
     auth.ts               # NextAuth configuration
     constants.ts          # Platform name, fees, config
     seed.ts               # Database seeder
