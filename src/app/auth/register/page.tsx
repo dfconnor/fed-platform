@@ -2,24 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import {
-  Eye,
-  EyeOff,
-  UtensilsCrossed,
-  Loader2,
-} from "lucide-react";
+import { Eye, EyeOff, UtensilsCrossed, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -85,175 +73,191 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 px-4 py-12">
-      <div className="w-full max-w-md animate-scale-in">
-        {/* Logo */}
-        <Link
-          href="/"
-          className="mb-8 flex items-center justify-center gap-2"
-        >
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-md">
-            <UtensilsCrossed className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="text-2xl font-bold tracking-tight">Fed</span>
-        </Link>
+    <div className="flex min-h-screen">
+      {/* Left: food image (hidden on mobile) */}
+      <div className="relative hidden w-1/2 lg:block">
+        <Image
+          src="https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=1200&q=80&fit=crop"
+          alt="Delicious plated food"
+          fill
+          className="object-cover"
+          priority
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/30 to-black/50" />
+        <div className="absolute bottom-12 left-12 right-12">
+          <p className="text-xl font-medium leading-relaxed text-white/90">
+            Join thousands of food lovers ordering directly from local
+            restaurants — no middleman, no markups.
+          </p>
+        </div>
+      </div>
 
-        <Card className="shadow-xl border-0">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Create your account</CardTitle>
-            <CardDescription>
-              Start ordering from your favorite restaurants
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {errors.form && (
-                <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-                  {errors.form}
-                </div>
+      {/* Right: register form */}
+      <div className="flex flex-1 items-center justify-center px-6 py-12">
+        <div className="w-full max-w-sm animate-scale-in">
+          {/* Logo */}
+          <Link href="/" className="mb-8 flex items-center gap-2.5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-sm">
+              <UtensilsCrossed className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <span className="font-display text-2xl">Fed</span>
+          </Link>
+
+          <h1 className="font-display text-3xl">Create your account</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Start ordering from your favorite restaurants
+          </p>
+
+          <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+            {errors.form && (
+              <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+                {errors.form}
+              </div>
+            )}
+
+            {/* Restaurant owner note */}
+            <div className="rounded-lg bg-warm-50 p-3 text-xs text-muted-foreground">
+              Want to list your restaurant?{" "}
+              <Link href="/pricing" className="text-primary underline">
+                Learn about our plans
+              </Link>{" "}
+              and contact us to get set up.
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="name">Full name</Label>
+              <Input
+                id="name"
+                placeholder="John Doe"
+                value={form.name}
+                onChange={(e) => updateField("name", e.target.value)}
+                error={!!errors.name}
+                autoComplete="name"
+              />
+              {errors.name && (
+                <p className="text-xs text-destructive">{errors.name}</p>
               )}
+            </div>
 
-              {/* Role info — owner accounts are created by admins */}
-              <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
-                Want to list your restaurant? <Link href="/pricing" className="text-primary underline">Learn about our plans</Link> and contact us to get set up.
-              </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={form.email}
+                onChange={(e) => updateField("email", e.target.value)}
+                error={!!errors.email}
+                autoComplete="email"
+              />
+              {errors.email && (
+                <p className="text-xs text-destructive">{errors.email}</p>
+              )}
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="name">Full name</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
                 <Input
-                  id="name"
-                  placeholder="John Doe"
-                  value={form.name}
-                  onChange={(e) => updateField("name", e.target.value)}
-                  error={!!errors.name}
-                  autoComplete="name"
-                />
-                {errors.name && (
-                  <p className="text-xs text-destructive">{errors.name}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={form.email}
-                  onChange={(e) => updateField("email", e.target.value)}
-                  error={!!errors.email}
-                  autoComplete="email"
-                />
-                {errors.email && (
-                  <p className="text-xs text-destructive">{errors.email}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="At least 8 characters"
-                    value={form.password}
-                    onChange={(e) => updateField("password", e.target.value)}
-                    error={!!errors.password}
-                    autoComplete="new-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-                {errors.password && (
-                  <p className="text-xs text-destructive">{errors.password}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm password</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="Re-enter your password"
-                  value={form.confirmPassword}
-                  onChange={(e) =>
-                    updateField("confirmPassword", e.target.value)
-                  }
-                  error={!!errors.confirmPassword}
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="At least 8 characters"
+                  value={form.password}
+                  onChange={(e) => updateField("password", e.target.value)}
+                  error={!!errors.password}
                   autoComplete="new-password"
                 />
-                {errors.confirmPassword && (
-                  <p className="text-xs text-destructive">
-                    {errors.confirmPassword}
-                  </p>
-                )}
-              </div>
-
-              {/* Terms */}
-              <div className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  id="terms"
-                  checked={form.terms}
-                  onChange={(e) => updateField("terms", e.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-border text-primary accent-primary"
-                />
-                <label
-                  htmlFor="terms"
-                  className="text-sm leading-relaxed text-muted-foreground"
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  I agree to the{" "}
-                  <Link href="#" className="text-primary hover:underline">
-                    Terms of Service
-                  </Link>{" "}
-                  and{" "}
-                  <Link href="#" className="text-primary hover:underline">
-                    Privacy Policy
-                  </Link>
-                </label>
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
               </div>
-              {errors.terms && (
-                <p className="text-xs text-destructive">{errors.terms}</p>
+              {errors.password && (
+                <p className="text-xs text-destructive">{errors.password}</p>
               )}
+            </div>
 
-              <Button
-                type="submit"
-                className="w-full"
-                size="lg"
-                disabled={loading}
+            <div className="space-y-1.5">
+              <Label htmlFor="confirmPassword">Confirm password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Re-enter your password"
+                value={form.confirmPassword}
+                onChange={(e) =>
+                  updateField("confirmPassword", e.target.value)
+                }
+                error={!!errors.confirmPassword}
+                autoComplete="new-password"
+              />
+              {errors.confirmPassword && (
+                <p className="text-xs text-destructive">
+                  {errors.confirmPassword}
+                </p>
+              )}
+            </div>
+
+            {/* Terms */}
+            <div className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                id="terms"
+                checked={form.terms}
+                onChange={(e) => updateField("terms", e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-border text-primary accent-primary"
+              />
+              <label
+                htmlFor="terms"
+                className="text-sm leading-relaxed text-muted-foreground"
               >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Creating account...
-                  </>
-                ) : (
-                  "Create account"
-                )}
-              </Button>
-            </form>
-          </CardContent>
-          <CardFooter className="justify-center">
-            <p className="text-sm text-muted-foreground">
-              Already have an account?{" "}
-              <Link
-                href="/auth/login"
-                className="font-medium text-primary hover:underline"
-              >
-                Sign in
-              </Link>
-            </p>
-          </CardFooter>
-        </Card>
+                I agree to the{" "}
+                <Link href="/terms" className="text-primary hover:underline">
+                  Terms of Service
+                </Link>{" "}
+                and{" "}
+                <Link href="/privacy" className="text-primary hover:underline">
+                  Privacy Policy
+                </Link>
+              </label>
+            </div>
+            {errors.terms && (
+              <p className="text-xs text-destructive">{errors.terms}</p>
+            )}
+
+            <Button
+              type="submit"
+              className="w-full"
+              size="lg"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Creating account...
+                </>
+              ) : (
+                "Create account"
+              )}
+            </Button>
+          </form>
+
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            Already have an account?{" "}
+            <Link
+              href="/auth/login"
+              className="font-medium text-primary hover:underline"
+            >
+              Sign in
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

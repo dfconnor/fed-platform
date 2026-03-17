@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useParams } from "next/navigation";
 import {
   Star,
@@ -19,6 +20,7 @@ import {
   X,
   Info,
   Loader2,
+  UtensilsCrossed,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -65,6 +67,31 @@ interface RestaurantData {
   accentColor: string;
   operatingHours: unknown;
   categories: MenuCategory[];
+}
+
+/* ================================================================
+   CUISINE → UNSPLASH BANNER IMAGES
+   ================================================================ */
+
+const cuisineBanners: Record<string, string> = {
+  american:
+    "https://images.unsplash.com/photo-1550547660-d9450f859349?w=1200&h=500&fit=crop",
+  japanese:
+    "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=1200&h=500&fit=crop",
+  italian:
+    "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=1200&h=500&fit=crop",
+  mexican:
+    "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=1200&h=500&fit=crop",
+  indian:
+    "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=1200&h=500&fit=crop",
+  thai:
+    "https://images.unsplash.com/photo-1562565652-a0d8f0c59eb4?w=1200&h=500&fit=crop",
+  default:
+    "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1200&h=500&fit=crop",
+};
+
+function getBannerImage(cuisine: string): string {
+  return cuisineBanners[cuisine.toLowerCase()] ?? cuisineBanners.default;
 }
 
 /* ================================================================
@@ -245,20 +272,15 @@ export default function RestaurantPage() {
       {/* ---- Restaurant Banner / Header ---- */}
       <div ref={headerRef} className="relative">
         {/* Banner image */}
-        <div
-          className="h-56 w-full sm:h-72"
-          style={{
-            background: `linear-gradient(135deg, ${restaurant.primaryColor}33, ${restaurant.secondaryColor}33, ${restaurant.accentColor}22)`,
-          }}
-        >
-          {/* Decorative pattern */}
-          <div
-            className="absolute inset-0 opacity-10"
-            style={{
-              backgroundImage: `radial-gradient(circle at 25% 50%, ${restaurant.primaryColor} 1px, transparent 1px), radial-gradient(circle at 75% 50%, ${restaurant.accentColor} 1px, transparent 1px)`,
-              backgroundSize: "40px 40px",
-            }}
+        <div className="relative h-56 w-full overflow-hidden sm:h-72">
+          <Image
+            src={getBannerImage(restaurant.cuisine)}
+            alt={`${restaurant.name} banner`}
+            fill
+            className="object-cover"
+            priority
           />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/40" />
         </div>
 
         {/* Back button */}
@@ -284,7 +306,7 @@ export default function RestaurantPage() {
               <div className="flex-1">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                    <h1 className="font-display text-2xl sm:text-3xl">
                       {restaurant.name}
                     </h1>
                     <p className="mt-1 text-sm text-muted-foreground">
@@ -597,13 +619,26 @@ function MenuItemCard({
 
       {/* Image / Add button area */}
       <div className="flex flex-col items-center justify-between">
-        {/* Image placeholder */}
-        <div
-          className="h-24 w-24 shrink-0 rounded-xl sm:h-28 sm:w-28"
-          style={{
-            background: `linear-gradient(135deg, ${primaryColor}15, ${primaryColor}08)`,
-          }}
-        />
+        {/* Item image */}
+        {item.imageUrl ? (
+          <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl sm:h-28 sm:w-28">
+            <Image
+              src={item.imageUrl}
+              alt={item.name}
+              fill
+              className="object-cover"
+            />
+          </div>
+        ) : (
+          <div
+            className="flex h-24 w-24 shrink-0 items-center justify-center rounded-xl sm:h-28 sm:w-28"
+            style={{
+              background: `linear-gradient(135deg, ${primaryColor}15, ${primaryColor}08)`,
+            }}
+          >
+            <UtensilsCrossed className="h-6 w-6 text-muted-foreground/30" />
+          </div>
+        )}
 
         {/* Add / quantity controls */}
         <div className="-mt-5 relative z-10">

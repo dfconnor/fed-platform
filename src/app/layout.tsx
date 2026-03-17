@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, DM_Serif_Display } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Providers } from "@/components/providers";
@@ -10,11 +10,18 @@ const inter = Inter({
   display: "swap",
 });
 
+const dmSerif = DM_Serif_Display({
+  variable: "--font-dm-serif",
+  subsets: ["latin"],
+  weight: "400",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "Fed - Restaurant Ordering Made Simple",
+  title: "Fed — Restaurant Ordering, Without the Middleman",
   description:
-    "Order from your favorite local restaurants with ease. Browse menus, customize your meal, and pay seamlessly with Fed.",
-  keywords: ["restaurant", "ordering", "food", "delivery", "pickup", "Fed"],
+    "Order from your favorite local restaurants with zero commission fees. Browse menus, customize your meal, and pay seamlessly. No app needed.",
+  keywords: ["restaurant", "ordering", "food", "delivery", "pickup", "Fed", "zero commission"],
 };
 
 export default function RootLayout({
@@ -23,7 +30,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={`${inter.variable} ${dmSerif.variable}`}>
       <body className="min-h-screen bg-background font-sans antialiased">
         <Providers>
           {children}
