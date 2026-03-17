@@ -135,14 +135,30 @@ Fed's pricing is designed to be radically transparent:
 
 Copy `.env.example` to `.env` and configure:
 
-```
-DATABASE_URL="file:./dev.db"
+```bash
+# Neon Postgres (get from https://console.neon.tech)
+DATABASE_URL="postgresql://user:pass@ep-xxx-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require"
+DIRECT_URL="postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require"
+
+# NextAuth (generate with: openssl rand -base64 32)
 AUTH_SECRET="your-secret-here"
 NEXTAUTH_URL="http://localhost:3000"
+
+# Optional
 STRIPE_SECRET_KEY="sk_test_..."
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_..."
-NEXT_PUBLIC_PLATFORM_NAME="Fed"
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
 ```
+
+## Deployment
+
+Deployed on **Vercel** with **Neon Postgres**.
+
+- Push to `claude/sweet-sutherland` → Preview deployment
+- Merge PR to `main` → Production deployment
+- Build command: `prisma generate && prisma migrate deploy && next build`
+- See `AGENTS.md` for full infrastructure details
 
 ## License
 
