@@ -2,56 +2,47 @@
 
 All notable changes to the Fed platform are documented here.
 
-## [Unreleased] — Security & Architecture Hardening
+## [0.3.0] — 2026-03-17 — Cart Polish + Registration Fix
+
+### Fixed
+- **Cart tax/fee** now reads from restaurant API instead of hardcoded values ($0.49 fee, 8.75% tax)
+- **Cart promo codes** validated against server (`/api/promotions`) instead of hardcoded "FED10"
+- **`dine_in` enum** — unified to `dine_in` everywhere (cart previously used `dinein`)
+- **Registration page** — removed misleading role selector (backend always sets `customer`)
+- **Service fee display** — conditionally hidden when $0
+
+---
+
+## [0.2.0] — 2026-03-17 — Security Hardening + Postgres Migration
 
 ### Infrastructure
 - **Migrated from SQLite/libSQL to PostgreSQL** (Neon serverless Postgres)
-- **Vercel deployment** with staging (preview) and production environments
-- Removed `@libsql/client` and `@prisma/adapter-libsql` dependencies
-- Added `DIRECT_URL` for Prisma migrations (bypasses connection pooler)
-- Updated seed script to use standard Prisma client (no adapter)
+- **Deployed to Vercel** — auto-deploys from `main` at https://fed-platform.vercel.app
+- Uses `@prisma/adapter-pg` with `PrismaPg({ connectionString })` pattern (Prisma 7)
+- Auth split: `auth.config.ts` (edge-safe for middleware) + `auth.ts` (full with Prisma)
+- Added `SessionProvider` wrapper via `src/components/providers.tsx`
 
 ### Added
-- **NextAuth route handler** (`/api/auth/[...nextauth]`) — login, logout, and OAuth callbacks now functional
-- **API auth guards** — all mutable API routes now require authentication via `src/lib/api-auth.ts`
-  - Menu CRUD: requires restaurant owner (or admin)
-  - Orders GET: requires authenticated user
-  - Order status PATCH: requires restaurant owner
-  - Promotions CRUD: requires restaurant owner
-  - Admin routes (restaurants, users, settings): requires admin role
-- **Shared auth helpers** (`requireAuth`, `requireAdmin`, `requireRestaurantOwner`) in `src/lib/api-auth.ts`
-- **NextAuth middleware** (`src/middleware.ts`) for page-level route protection (dashboard, admin)
-- **Database indexes** on Order, MenuItem, Restaurant, Promotion for query performance
-- **`.env.example`** documenting all required environment variables
-- **README security status section** — clear "What's Real" vs "What's Mocked" documentation
-- **SWR hooks** for all data fetching (menu, orders, analytics, promotions, admin)
-- **Zod validation schemas** for all API inputs (replacing dangerous `.passthrough()`)
-- **Prisma `$transaction`** for atomic order creation with server-side promo validation
-- **Zustand cart store** consolidation — single source of truth for cart state
-- **Admin API routes** (`/api/admin/restaurants`, `/api/admin/users`, `/api/admin/settings`)
-- **Promotions API route** (`/api/promotions`) with full CRUD
+- **NextAuth route handler** (`/api/auth/[...nextauth]`) — login, logout, OAuth
+- **API auth guards** on all mutable routes via `src/lib/api-auth.ts`
+- **Database indexes** on Order, MenuItem, Restaurant, Promotion
+- **SWR hooks** for all data fetching
+- **Zod validation schemas** for all API inputs (no `.passthrough()`)
+- **Admin API routes** (restaurants, users, settings)
+- **Promotions API** with full CRUD
 
 ### Fixed
-- **Login page** now uses NextAuth `signIn("credentials")` instead of non-existent `/api/auth/login` endpoint
-- **Cart checkout** now calls `createOrder` server action instead of fake `setTimeout` simulation
-- **Order confirmation page** fetches real order data from API instead of showing hardcoded mock items
-- **Sign-out** buttons in dashboard and admin layouts now call `signOut()`
-- **Registration** hardcoded to `role: "customer"` — users can no longer self-assign `owner`/`admin`
-- **Dashboard context** is session-aware — fetches the authenticated user's restaurants instead of hardcoded slug
-- **Analytics field name mismatch** — API now returns both `avgOrderValue` and `averageOrderValue`
-- **Admin restaurant PATCH schema** — replaced `.passthrough()` with explicit allowed fields
-- **Menu PATCH** — removed broken `parseFloat`/`parseInt` on already-typed Zod output
+- **Login** uses NextAuth `signIn("credentials")` (was calling non-existent endpoint)
+- **Cart checkout** calls `createOrder` server action (was fake `setTimeout`)
+- **Order confirmation** fetches real order data + polls for status updates
+- **Sign-out** buttons wired to `signOut()`
+- **Registration** hardcoded to `role: "customer"`
+- **Analytics** protected with `requireAuth()`
 
 ### Removed
-- `mock-data.ts` (1,277 lines of static mock data)
-- `proxy.ts` route protection (superseded by `middleware.ts`)
-
-### Security
-- All API routes now enforce authentication and authorization
-- Registration no longer accepts `role` from client input
-- Admin endpoints require `admin` role at both middleware and API route level
-- Restaurant mutations verify ownership before allowing changes
-- Validation schemas use explicit fields instead of `.passthrough()`
+- `mock-data.ts` (1,277 lines)
+- `proxy.ts` (superseded by NextAuth middleware)
+- `@libsql/client` and `@prisma/adapter-libsql` dependencies
 
 ---
 
