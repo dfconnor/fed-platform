@@ -1,4 +1,7 @@
-import { auth } from "@/lib/auth";
+import NextAuth from "next-auth";
+import { authConfig } from "@/lib/auth.config";
+
+const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const isLoggedIn = !!req.auth;
@@ -8,7 +11,7 @@ export default auth((req) => {
   const isDashboardRoute = nextUrl.pathname.startsWith("/dashboard");
   const isAdminRoute = nextUrl.pathname.startsWith("/admin");
   const isAuthRoute = nextUrl.pathname.startsWith("/auth");
-  const isPublicApiRoute = nextUrl.pathname.startsWith("/api/auth") || 
+  const isPublicApiRoute = nextUrl.pathname.startsWith("/api/auth") ||
                            (nextUrl.pathname.startsWith("/api/restaurants") && req.method === "GET") ||
                            (nextUrl.pathname.startsWith("/api/menu") && req.method === "GET");
 

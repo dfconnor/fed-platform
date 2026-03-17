@@ -3,15 +3,7 @@ import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { createOrderSchema } from "@/lib/validations";
 import { requireAuth, requireRestaurantOwner } from "@/lib/api-auth";
-
-function generateOrderNumber(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "";
-  for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return `FED-${code}`;
-}
+import { generateOrderNumber } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
   try {

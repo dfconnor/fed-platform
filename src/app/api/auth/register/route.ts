@@ -1,58 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import { hash } from "bcryptjs";
-import { registerUserSchema } from "@/lib/validations";
+import { registerUser } from "@/lib/actions";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    const result = await registerUser(body);
 
-    const parsed = registerUserSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Validation failed", details: parsed.error.flatten() },
-        { status: 400 }
-      );
+    if (result.success) {
+      return NextResponse.json({ user: result.data }, { status: 201 });
+    } else {
+      const status = result.error.includes("already exists") ? 409 : 400;
+      return NextResponse.json({ error: result.error }, { status });
     }
-
-    const { name, email, password } = parsed.data;
-    // Role is always "customer" at registration. Only admins can promote users.
-
-    const existingUser = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-    });
-
-    if (existingUser) {
-      return NextResponse.json(
-        { error: "An account with this email already exists" },
-        { status: 409 }
-      );
-    }
-
-    const passwordHash = await hash(password, 12);
-
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email: email.toLowerCase(),
-        passwordHash,
-        role: "customer",
-      },
-    });
-
-    return NextResponse.json(
-      {
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-        },
-      },
-      { status: 201 }
-    );
   } catch (error) {
-    console.error("Registration error:", error);
+    console.error("Registration API error:", error);
     return NextResponse.json(
       { error: "Failed to create account" },
       { status: 500 }
