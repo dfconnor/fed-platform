@@ -56,12 +56,24 @@ what they did, and what remains for the next agent/human to pick up.
 - Created Neon project via `neonctl` CLI, seeded with demo data
 - Deployed to Vercel with auto-deploy from `main`
 
-### Phase 5: Cart + Registration Polish (Claude)
+### Phase 5: Cart + Registration Polish (Claude Code CLI)
 **Commit:** `430f27c` — Fix cart pricing, promo validation, dine_in enum, and registration UX
 - Cart now reads tax rate and service fee from restaurant API (was hardcoded)
 - Promo codes validated against server (was hardcoded "FED10")
 - Fixed `dine_in` enum mismatch (cart used "dinein", API expected "dine_in")
 - Removed misleading role selector from registration page
+
+### Phase 6: Design Overhaul (Claude Code Desktop)
+**Commit:** `9ff1b1b` — Design overhaul: warm food-forward palette, shared Navbar/Footer, new pages
+- Warm color palette: cream backgrounds, tomato-red primary, golden amber accent
+- DM Serif Display for headings, Inter for body
+- Unsplash food photography throughout (hero, cards, auth, pricing)
+- Shared Navbar (session-aware: Dashboard for owners/admins, Sign out)
+- Shared Footer (4-column layout with real links)
+- New pages: /about, /support, /privacy, /terms
+- Auth pages: split layout with food photo + form
+- NextAuth type augmentation (`src/types/next-auth.d.ts`)
+- Bug fix: cart API response handling (`data.restaurant ?? data`)
 
 ---
 
@@ -122,25 +134,38 @@ If you put Prisma imports in `auth.config.ts` or `middleware.ts`, the Edge build
 
 ## Remaining Work
 
+### Critical (blocks real usage)
+- [ ] **Order detail IDOR** — `GET /api/orders/:id` has NO auth. Anyone with an order ID can read customer PII (name, email, phone, items, totals). The PATCH is protected but GET is not.
+- [ ] **Promo code double-increment** — `createOrder` in `actions.ts` increments `usedCount` OUTSIDE the transaction (line ~700), then increments again INSIDE the `$transaction` (line ~748). Every promo use counts double.
+- [ ] **No real payment** — Cart calls `createOrder` which sets `paymentStatus: "pending"` but never collects card details or creates a Stripe PaymentIntent. Selecting "Apple Pay" or "Credit Card" does nothing.
+- [ ] **Dual order creation paths** — Server action (`actions.ts`) and API route (`POST /api/orders`) both create orders with different validation, discount logic, and `paymentStatus` values. Pick one, delete the other.
+
 ### High Priority
-- [ ] **Order number collision** — `generateOrderNumber()` uses `Math.random()` with no retry on unique constraint violation
-- [ ] **Stripe integration** — replace demo `pi_demo_` stub with real PaymentIntent flow
-- [ ] **Google OAuth** — hide the button when `GOOGLE_CLIENT_ID` is not configured, or add real credentials
+- [ ] **Middleware API protection hole** — `middleware.ts` line 41 allows ALL unauthenticated POST requests to every API endpoint (intent was only `/api/orders`), and allows all unauthenticated GET to `/api/orders/*`
+- [ ] **Cart promo validation 401s for guests** — `handleApplyPromo` calls `GET /api/promotions` which requires auth. Guest users always get 401 silently.
+- [ ] **Cart discount hardcoded to 10%** — Line 141: `subtotal * 0.1` regardless of actual promo `discountType`/`discountValue`. Server computes the real discount, so displayed total differs from charged total.
+- [ ] **No customer info validation** — Cart submits empty name/email/phone without complaint. Server doesn't enforce either.
+- [ ] **Homepage is fully client-rendered** — `"use client"` + `useEffect` fetch. Bad for SEO on a restaurant discovery platform. Should be a server component.
+- [ ] **"Open Now" always green** — Restaurant page hardcodes open status. Never checks `businessHours`.
 
 ### Medium Priority
-- [ ] **`actions.ts` cleanup** — ~800 lines, partially duplicates API routes. Decide: server actions or API routes
-- [ ] **Password reset flow** — "Forgot password?" link goes to `#`
-- [ ] **"Open Now" logic** — always shows green; should parse `businessHours` JSON
-- [ ] **Delivery fee display** — server applies $4.99 for delivery but cart never shows it
-- [ ] **N+1 in order creation** — menu items/modifiers fetched individually in loop
+- [ ] **Order number collision** — `Math.random()` 6-char code, no retry on unique constraint. Collisions likely around ~47K orders.
+- [ ] **Consolidate `actions.ts`** — ~800 lines duplicating API route logic. Pick one mutation path.
+- [ ] **Password reset** — "Forgot password?" goes to `#`
+- [ ] **Support contact form is a no-op** — Shows "Message sent!" but doesn't actually send anything
+- [ ] **Cart cross-restaurant items** — If user navigates directly to `/r/restaurant-b/cart` with restaurant-a items in store, wrong items display
+- [ ] **Negative tip possible** — Custom tip input accepts negative values despite `min="0"` (parseFloat ignores HTML attributes)
+- [ ] **Password length mismatch** — Login validates >= 6 chars, register validates >= 8, server validates >= 8
 
 ### Low Priority
-- [ ] **Analytics aggregation** — loads all orders into memory; should use DB-level aggregation
-- [ ] **Float to Int migration** — prices stored as Float (dollars), consider migrating to Int (cents)
-- [ ] **Dead code cleanup** — `src/lib/demo-charts.ts`, various unused imports
-- [ ] **Image upload** — currently URL-only, no file upload
-- [ ] **Email notifications** — currently console.log only
-- [ ] **Tests** — no test suite exists
+- [ ] **Float prices** — should be Int (cents) or Decimal for financial precision
+- [ ] **Analytics aggregation** — loads all orders into memory
+- [ ] **Page metadata** — no per-page `<title>` or `metadata` exports (SEO)
+- [ ] **Accessibility** — missing aria-labels on hamburger menu, FAQ toggles, quantity buttons, cuisine filters
+- [ ] **Unsplash dependency** — no image fallbacks if Unsplash is down
+- [ ] **next-auth beta** — `5.0.0-beta.30` in production
+- [ ] **Dead code** — `src/lib/demo-charts.ts`, unused imports
+- [ ] **Tests** — no test suite
 
 ### Completed (for reference)
 - [x] Analytics route auth (requireAuth added)
