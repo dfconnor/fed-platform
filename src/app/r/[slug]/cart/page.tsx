@@ -80,9 +80,10 @@ export default function CartPage() {
         const res = await fetch(`/api/restaurants/${slug}`);
         if (res.ok) {
           const data = await res.json();
-          setRestaurantId(data.id);
-          setTaxRate(data.taxRate ?? 0.0875);
-          setServiceFee(data.serviceFee ?? 0);
+          const r = data.restaurant ?? data;
+          setRestaurantId(r.id);
+          setTaxRate(r.taxRate ?? 0.0875);
+          setServiceFee(r.serviceFee ?? 0);
         }
       } catch (err) {
         console.error("Failed to fetch restaurant", err);
