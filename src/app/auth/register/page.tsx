@@ -8,8 +8,6 @@ import {
   EyeOff,
   UtensilsCrossed,
   Loader2,
-  User,
-  Store,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,8 +21,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-type Role = "customer" | "owner";
-
 export default function RegisterPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
@@ -35,7 +31,6 @@ export default function RegisterPage() {
     email: "",
     password: "",
     confirmPassword: "",
-    role: "customer" as Role,
     terms: false,
   });
 
@@ -68,7 +63,6 @@ export default function RegisterPage() {
           name: form.name,
           email: form.email,
           password: form.password,
-          role: form.role,
         }),
       });
       if (res.ok) {
@@ -89,21 +83,6 @@ export default function RegisterPage() {
   function updateField(field: string, value: string | boolean) {
     setForm((f) => ({ ...f, [field]: value }));
   }
-
-  const roles: { value: Role; label: string; desc: string; icon: typeof User }[] = [
-    {
-      value: "customer",
-      label: "Customer",
-      desc: "I want to order food",
-      icon: User,
-    },
-    {
-      value: "owner",
-      label: "Restaurant Owner",
-      desc: "I want to list my restaurant",
-      icon: Store,
-    },
-  ];
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 px-4 py-12">
@@ -134,32 +113,9 @@ export default function RegisterPage() {
                 </div>
               )}
 
-              {/* Role selector */}
-              <div className="space-y-2">
-                <Label>I am a</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  {roles.map((r) => {
-                    const active = form.role === r.value;
-                    return (
-                      <button
-                        key={r.value}
-                        type="button"
-                        onClick={() => updateField("role", r.value)}
-                        className={`flex flex-col items-center gap-1.5 rounded-xl border-2 p-4 text-center transition-all duration-200 ${
-                          active
-                            ? "border-primary bg-primary/5 text-primary"
-                            : "border-border hover:border-primary/30"
-                        }`}
-                      >
-                        <r.icon className="h-5 w-5" />
-                        <span className="text-sm font-medium">{r.label}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {r.desc}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+              {/* Role info — owner accounts are created by admins */}
+              <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+                Want to list your restaurant? <Link href="/pricing" className="text-primary underline">Learn about our plans</Link> and contact us to get set up.
               </div>
 
               <div className="space-y-2">
