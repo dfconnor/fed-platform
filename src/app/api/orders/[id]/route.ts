@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { updateOrderSchema } from "@/lib/validations";
 import { requireRestaurantOwner } from "@/lib/api-auth";
+import { auth } from "@/lib/auth";
 
 export async function GET(
   req: NextRequest,
@@ -21,7 +22,6 @@ export async function GET(
             modifiers: true,
           },
         },
-        customer: { select: { name: true, email: true, phone: true } },
         restaurant: {
           select: {
             name: true,
@@ -35,6 +35,32 @@ export async function GET(
 
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    // Access control: allow the order's customer, the restaurant owner, or admins
+    const session = await auth();
+    const userId = session?.user?.id;
+    const userRole = (session?.user as { role?: string })?.role;
+
+    const isOrderCustomer = order.customerId && order.customerId === userId;
+    const isAdmin = userRole === "admin";
+
+    // For restaurant owners, check ownership
+    let isRestaurantOwner = false;
+    if (userId && !isOrderCustomer && !isAdmin) {
+      const restaurant = await prisma.restaurant.findUnique({
+        where: { id: order.restaurantId },
+        select: { ownerId: true },
+      });
+      isRestaurantOwner = restaurant?.ownerId === userId;
+    }
+
+    // Guest orders (no customerId) can be viewed by anyone with the order ID
+    // This is intentional — guests get an order confirmation page with their order ID
+    const isGuestOrder = !order.customerId;
+
+    if (!isGuestOrder && !isOrderCustomer && !isRestaurantOwner && !isAdmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     return NextResponse.json({ order });

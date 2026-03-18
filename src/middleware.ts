@@ -13,7 +13,8 @@ export default auth((req) => {
   const isAuthRoute = nextUrl.pathname.startsWith("/auth");
   const isPublicApiRoute = nextUrl.pathname.startsWith("/api/auth") ||
                            (nextUrl.pathname.startsWith("/api/restaurants") && req.method === "GET") ||
-                           (nextUrl.pathname.startsWith("/api/menu") && req.method === "GET");
+                           (nextUrl.pathname.startsWith("/api/menu") && req.method === "GET") ||
+                           (nextUrl.pathname === "/api/promotions/validate" && req.method === "GET");
 
   // Protect Admin Routes
   if (isAdminRoute) {
@@ -38,8 +39,9 @@ export default auth((req) => {
 
   // Protect sensitive API Routes
   if (isApiRoute && !isPublicApiRoute) {
-    if (!isLoggedIn && req.method !== "POST" && !nextUrl.pathname.startsWith("/api/orders")) {
-      // Allow POST /api/orders for guest checkout, but protect others
+    // Allow guest checkout: only POST to /api/orders (not subpaths)
+    const isGuestCheckout = req.method === "POST" && nextUrl.pathname === "/api/orders";
+    if (!isLoggedIn && !isGuestCheckout) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
   }

@@ -696,11 +696,7 @@ export async function createOrder(formData: {
             
           // Cap discount at subtotal
           discountAmount = Math.min(discountAmount, subtotal);
-
-          await prisma.promotion.update({
-            where: { id: promo.id },
-            data: { usedCount: { increment: 1 } }
-          });
+          // Note: usedCount increment happens inside the $transaction below
         }
       }
     }
