@@ -135,16 +135,10 @@ If you put Prisma imports in `auth.config.ts` or `middleware.ts`, the Edge build
 ## Remaining Work
 
 ### Critical (blocks real usage)
-- [ ] **Order detail IDOR** — `GET /api/orders/:id` has NO auth. Anyone with an order ID can read customer PII (name, email, phone, items, totals). The PATCH is protected but GET is not.
-- [ ] **Promo code double-increment** — `createOrder` in `actions.ts` increments `usedCount` OUTSIDE the transaction (line ~700), then increments again INSIDE the `$transaction` (line ~748). Every promo use counts double.
 - [ ] **No real payment** — Cart calls `createOrder` which sets `paymentStatus: "pending"` but never collects card details or creates a Stripe PaymentIntent. Selecting "Apple Pay" or "Credit Card" does nothing.
 - [ ] **Dual order creation paths** — Server action (`actions.ts`) and API route (`POST /api/orders`) both create orders with different validation, discount logic, and `paymentStatus` values. Pick one, delete the other.
 
 ### High Priority
-- [ ] **Middleware API protection hole** — `middleware.ts` line 41 allows ALL unauthenticated POST requests to every API endpoint (intent was only `/api/orders`), and allows all unauthenticated GET to `/api/orders/*`
-- [ ] **Cart promo validation 401s for guests** — `handleApplyPromo` calls `GET /api/promotions` which requires auth. Guest users always get 401 silently.
-- [ ] **Cart discount hardcoded to 10%** — Line 141: `subtotal * 0.1` regardless of actual promo `discountType`/`discountValue`. Server computes the real discount, so displayed total differs from charged total.
-- [ ] **No customer info validation** — Cart submits empty name/email/phone without complaint. Server doesn't enforce either.
 - [ ] **Homepage is fully client-rendered** — `"use client"` + `useEffect` fetch. Bad for SEO on a restaurant discovery platform. Should be a server component.
 - [ ] **"Open Now" always green** — Restaurant page hardcodes open status. Never checks `businessHours`.
 
@@ -179,6 +173,40 @@ If you put Prisma imports in `auth.config.ts` or `middleware.ts`, the Edge build
 - [x] All API routes unprotected (all now have auth guards)
 - [x] Vercel deployment (live at fed-platform.vercel.app)
 - [x] SQLite to Postgres migration (Neon)
+- [x] Order IDOR — GET /api/orders/:id now requires ownership (customer, owner, admin). Guest orders viewable by ID.
+- [x] Promo double-increment — removed outer usedCount increment, only transactional one remains
+- [x] Middleware API hole — tightened to only allow unauthenticated POST to /api/orders
+- [x] Cart discount accuracy — uses actual promo discountType/discountValue from server
+- [x] Guest promo validation — public /api/promotions/validate endpoint
+- [x] Customer info validation — name + email/phone required before order
+- [x] Design overhaul — warm palette, DM Serif Display, food photography, Navbar/Footer
+
+---
+
+## Delivery Roadmap
+
+### Phase 1 (current): Pickup + Dine-in only
+Already working. No delivery integration needed.
+
+### Phase 2: Nash delivery integration
+**Provider:** [Nash](https://nash.ai/) — single API, aggregates 500+ delivery providers (DoorDash, Uber, Lyft, local fleets). Picks cheapest/fastest per order.
+- [API docs](https://docs.usenash.com/reference/nash-api-overview)
+
+**Architecture:**
+1. Customer places order on Fed with `orderType: "delivery"` + delivery address
+2. Fed calls Nash API with pickup (restaurant) and dropoff (customer) addresses
+3. Nash dispatches nearest available driver from best provider
+4. Customer gets branded tracking link
+5. Restaurant sees delivery status in dashboard
+
+**Alternative providers (if Nash doesn't work out):**
+- **DoorDash Drive** — $9.75 base (<5mi), +$0.75/mi. [developer.doordash.com](https://developer.doordash.com/en-US/api/drive/)
+- **Uber Direct** — 2.5% + $0.29/order. [developer.uber.com](https://developer.uber.com/docs/deliveries/overview)
+- **Dispatch** (San Diego local) — [dispatchit.com](https://www.dispatchit.com/company/locations/san-diego)
+
+### Phase 3: Restaurant delivery settings
+- Owner dashboard: enable/disable delivery, set delivery radius, set delivery fee (pass to customer or absorb)
+- Schema changes: add `deliveryEnabled`, `deliveryRadius`, `deliveryFeeMode` to Restaurant model
 
 ---
 
@@ -195,7 +223,11 @@ If you put Prisma imports in `auth.config.ts` or `middleware.ts`, the Edge build
 | `src/lib/store.ts` | Zustand cart store (persisted) |
 | `src/lib/seed.ts` | Database seeder (run with `npx tsx src/lib/seed.ts`) |
 | `src/middleware.ts` | NextAuth middleware — imports from `auth.config.ts` NOT `auth.ts` |
+| `src/app/api/promotions/validate/route.ts` | Public promo validation endpoint (guest-accessible) |
+| `src/components/navbar.tsx` | Shared navbar (session-aware: Dashboard for owners/admins) |
+| `src/components/footer.tsx` | Shared footer (4-column layout) |
 | `src/components/providers.tsx` | SessionProvider wrapper |
+| `src/types/next-auth.d.ts` | NextAuth type augmentation (User.role, Session.user.role) |
 | `prisma/schema.prisma` | Database schema (16 models, PostgreSQL, NO url in datasource) |
 | `prisma.config.ts` | Prisma config (migration URL from DIRECT_URL env var) |
 | `.env.example` | Environment variable template |
