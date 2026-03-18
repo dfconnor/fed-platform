@@ -25,21 +25,21 @@ import { Footer } from "@/components/footer";
 const competitors = [
   {
     name: "DoorDash",
-    commission: "15\u201330%",
-    monthlyFee: "$0\u2013$69/mo",
+    commission: "15–30%",
+    monthlyFee: "$0–$69/mo",
     perOrder: "$6+ customer fees",
     hidden: "Marketing fees, tablet rental, premium placement",
   },
   {
     name: "Grubhub",
-    commission: "15\u201330%",
+    commission: "15–30%",
     monthlyFee: "$0",
     perOrder: "$5+ customer fees",
     hidden: "15% marketing fee, sponsored listings, phone order fees",
   },
   {
     name: "Uber Eats",
-    commission: "15\u201330%",
+    commission: "15–30%",
     monthlyFee: "$0",
     perOrder: "$5+ customer fees",
     hidden: "Marketing fees, upcharges, Uber One subsidies",
@@ -47,15 +47,15 @@ const competitors = [
   {
     name: "Toast",
     commission: "0%",
-    monthlyFee: "$69\u2013$165/mo",
-    perOrder: "2.49\u20133.69% + $0.15",
+    monthlyFee: "$69–$165/mo",
+    perOrder: "2.49–3.69% + $0.15",
     hidden: "Hardware costs ($799+), add-on fees, POS lock-in",
   },
   {
     name: "Square",
     commission: "0%",
-    monthlyFee: "$0\u2013$60/mo",
-    perOrder: "2.6\u20132.9% + $0.10\u2013$0.30",
+    monthlyFee: "$0–$60/mo",
+    perOrder: "2.6–2.9% + $0.10–$0.30",
     hidden: "Premium features extra, limited restaurant tools",
   },
 ];
@@ -78,7 +78,7 @@ const plans = [
       "Email support",
     ],
     cta: "Get Started Free",
-    note: "Only pay 2.9% + $0.30 per transaction (Stripe processing \u2014 no markup)",
+    note: "Only pay 2.9% + $0.30 per transaction (Stripe processing — no markup)",
   },
   {
     name: "Pro",
@@ -97,7 +97,7 @@ const plans = [
       "API access for integrations",
     ],
     cta: "Start Free Trial",
-    note: "Same low payment processing \u2014 no commission ever",
+    note: "Same low payment processing — no commission ever",
   },
 ];
 
@@ -124,13 +124,13 @@ const fedAdvantages = [
     icon: Palette,
     title: "You Own Your Data",
     description:
-      "Customer emails, phone numbers, order history \u2014 it\u2019s all yours. Not locked in our platform.",
+      "Customer emails, phone numbers, order history — it's all yours. Not locked in our platform.",
   },
   {
     icon: QrCode,
     title: "QR Code Ordering",
     description:
-      "Print QR codes for tables. Customers scan, browse, and order \u2014 no waiter needed.",
+      "Print QR codes for tables. Customers scan, browse, and order — no waiter needed.",
   },
   {
     icon: Bell,
@@ -168,8 +168,8 @@ export default function PricingPage() {
             Ditch the middleman.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-white/80">
-            Other platforms take 15\u201330% of every order. That&apos;s $4.50\u2013$9.00 on a $30 meal
-            \u2014 money that should be yours. Fed charges{" "}
+            Other platforms take 15–30% of every order. That&apos;s $4.50–$9.00 on a $30 meal
+            — money that should be yours. Fed charges{" "}
             <strong className="text-white">zero commission</strong>. You only pay
             Stripe&apos;s standard processing fee.
           </p>
@@ -209,7 +209,7 @@ export default function PricingPage() {
               <p className="mt-3 text-sm font-medium">
                 You keep: <span className="text-foreground">$28.88</span>
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">+ $69\u2013$165/mo subscription</p>
+              <p className="mt-1 text-xs text-muted-foreground">+ $69–$165/mo subscription</p>
             </div>
 
             {/* Fed */}

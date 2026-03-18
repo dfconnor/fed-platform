@@ -22,8 +22,8 @@ export default function LoginPage() {
     if (!form.email) e.email = "Email is required";
     else if (!/\S+@\S+\.\S+/.test(form.email)) e.email = "Invalid email address";
     if (!form.password) e.password = "Password is required";
-    else if (form.password.length < 6)
-      e.password = "Password must be at least 6 characters";
+    else if (form.password.length < 8)
+      e.password = "Password must be at least 8 characters";
     return e;
   }
 

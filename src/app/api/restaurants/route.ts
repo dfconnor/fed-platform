@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { createRestaurantSchema } from "@/lib/validations";
+import { requireAdmin } from "@/lib/api-auth";
 
 export async function GET(req: NextRequest) {
   try {
@@ -95,6 +96,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    // Only admins can create restaurants
+    const authResult = await requireAdmin();
+    if (authResult.error) return authResult.error;
+
     const body = await req.json();
 
     const parsed = createRestaurantSchema.safeParse(body);
