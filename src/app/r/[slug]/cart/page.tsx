@@ -106,6 +106,7 @@ export default function CartPage() {
   const [showCustomTip, setShowCustomTip] = useState(false);
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(false);
+  const [promoDiscount, setPromoDiscount] = useState<{ type: string; value: number } | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [loading, setLoading] = useState(false);
   const [customerInfo, setCustomerInfo] = useState({
@@ -138,12 +139,26 @@ export default function CartPage() {
   const tipAmount = showCustomTip
     ? parseFloat(customTip) || 0
     : subtotal * selectedTip;
-  const discount = promoApplied ? subtotal * 0.1 : 0;
+  const discount = promoApplied && promoDiscount
+    ? promoDiscount.type === "percentage"
+      ? Math.min(subtotal * (promoDiscount.value / 100), subtotal)
+      : Math.min(promoDiscount.value, subtotal)
+    : 0;
   const total = subtotal + tax + serviceFee + tipAmount - discount;
 
   async function handlePlaceOrder() {
     if (!restaurantId) return;
-    
+
+    // Validate customer info
+    if (!customerInfo.name.trim()) {
+      toast({ title: "Name Required", description: "Please enter your name.", variant: "destructive" });
+      return;
+    }
+    if (!customerInfo.email.trim() && !customerInfo.phone.trim()) {
+      toast({ title: "Contact Required", description: "Please enter your email or phone number.", variant: "destructive" });
+      return;
+    }
+
     setLoading(true);
     try {
       const result = await createOrder({
@@ -198,20 +213,19 @@ export default function CartPage() {
     if (!promoCode.trim() || !restaurantId) return;
     try {
       const res = await fetch(
-        `/api/promotions?restaurantId=${restaurantId}&code=${encodeURIComponent(promoCode)}`
+        `/api/promotions/validate?restaurantId=${restaurantId}&code=${encodeURIComponent(promoCode)}`
       );
       if (res.ok) {
-        const data = await res.json();
-        const promo = data.promotions?.find(
-          (p: { code: string; isActive: boolean }) =>
-            p.code === promoCode.toUpperCase() && p.isActive
-        );
-        if (promo) {
-          setPromoApplied(true);
-          toast({ title: "Promo Applied!", description: `${promo.code}: ${promo.description || "Discount applied"}` });
-        } else {
-          toast({ title: "Invalid Code", description: "This promo code is not valid.", variant: "destructive" });
+        const promo = await res.json();
+        if (promo.minOrder && subtotal < promo.minOrder) {
+          toast({ title: "Minimum Not Met", description: `This code requires a $${promo.minOrder.toFixed(2)} minimum order.`, variant: "destructive" });
+          return;
         }
+        setPromoApplied(true);
+        setPromoDiscount({ type: promo.discountType, value: promo.discountValue });
+        toast({ title: "Promo Applied!", description: `${promo.code}: ${promo.description || "Discount applied"}` });
+      } else {
+        toast({ title: "Invalid Code", description: "This promo code is not valid or has expired.", variant: "destructive" });
       }
     } catch {
       toast({ title: "Error", description: "Could not validate promo code.", variant: "destructive" });
