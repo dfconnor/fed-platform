@@ -17,11 +17,9 @@ import { requireAuth, requireRestaurantOwner } from "@/lib/api-auth";
 // ---------------------------------------------------------------------------
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await requireAuth();
-    if (authResult.error) return authResult.error;
-
     const { searchParams } = new URL(req.url);
     const restaurantId = searchParams.get("restaurantId");
+    const code = searchParams.get("code");
 
     if (!restaurantId) {
       return NextResponse.json(
@@ -29,6 +27,42 @@ export async function GET(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Public promo validation: if a specific code is provided, validate it
+    // This is used by cart guests to check if a promo code is valid
+    if (code) {
+      const now = new Date();
+      const promo = await prisma.promotion.findFirst({
+        where: {
+          restaurantId,
+          code: code.toUpperCase(),
+          isActive: true,
+          startsAt: { lte: now },
+          expiresAt: { gte: now },
+        },
+        select: {
+          id: true,
+          code: true,
+          description: true,
+          discountType: true,
+          discountValue: true,
+          minOrder: true,
+          maxUses: true,
+          usedCount: true,
+          isActive: true,
+        },
+      });
+
+      if (!promo || (promo.maxUses !== null && promo.usedCount >= promo.maxUses)) {
+        return NextResponse.json({ promotions: [] });
+      }
+
+      return NextResponse.json({ promotions: [promo] });
+    }
+
+    // Full promo list: requires restaurant owner auth
+    const authResult = await requireRestaurantOwner(restaurantId);
+    if (authResult.error) return authResult.error;
 
     const promotions = await prisma.promotion.findMany({
       where: { restaurantId },

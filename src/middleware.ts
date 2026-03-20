@@ -11,10 +11,16 @@ export default auth((req) => {
   const isDashboardRoute = nextUrl.pathname.startsWith("/dashboard");
   const isAdminRoute = nextUrl.pathname.startsWith("/admin");
   const isAuthRoute = nextUrl.pathname.startsWith("/auth");
-  const isPublicApiRoute = nextUrl.pathname.startsWith("/api/auth") ||
-                           (nextUrl.pathname.startsWith("/api/restaurants") && req.method === "GET") ||
-                           (nextUrl.pathname.startsWith("/api/menu") && req.method === "GET") ||
-                           (nextUrl.pathname === "/api/promotions/validate" && req.method === "GET");
+  // Public API routes — accessible without authentication
+  const isPublicApiRoute =
+    nextUrl.pathname.startsWith("/api/auth") ||
+    (nextUrl.pathname.startsWith("/api/restaurants") && req.method === "GET") ||
+    (nextUrl.pathname.startsWith("/api/menu") && req.method === "GET") ||
+    // Guest promo validation: GET /api/promotions?code=X (single code lookup is public,
+    // full list requires auth — enforced in the route handler)
+    (nextUrl.pathname === "/api/promotions" && req.method === "GET" && nextUrl.searchParams.has("code")) ||
+    // Guest checkout — POST to /api/orders only (not subpaths like /api/orders/123)
+    (nextUrl.pathname === "/api/orders" && req.method === "POST");
 
   // Protect Admin Routes
   if (isAdminRoute) {
@@ -37,13 +43,9 @@ export default auth((req) => {
     }
   }
 
-  // Protect sensitive API Routes
-  if (isApiRoute && !isPublicApiRoute) {
-    // Allow guest checkout: only POST to /api/orders (not subpaths)
-    const isGuestCheckout = req.method === "POST" && nextUrl.pathname === "/api/orders";
-    if (!isLoggedIn && !isGuestCheckout) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  // Protect all non-public API routes
+  if (isApiRoute && !isPublicApiRoute && !isLoggedIn) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   return;
