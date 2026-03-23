@@ -24,7 +24,7 @@ export async function requireAuth(): Promise<
   return {
     user: {
       id: session.user.id,
-      role: (session.user as { role?: string }).role ?? "customer",
+      role: session.user.role ?? "customer",
       email: session.user.email,
       name: session.user.name,
     },

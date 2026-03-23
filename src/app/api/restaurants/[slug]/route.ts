@@ -102,7 +102,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Restaurant not found" }, { status: 404 });
     }
 
-    if (existing.ownerId !== session.user.id && (session.user as any).role !== "admin") {
+    if (existing.ownerId !== session.user.id && session.user.role !== "admin") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency, getOpenStatus } from "@/lib/utils";
 import { useCartStore } from "@/lib/store";
 
 /* ================================================================
@@ -65,7 +65,7 @@ interface RestaurantData {
   primaryColor: string;
   secondaryColor: string;
   accentColor: string;
-  operatingHours: unknown;
+  businessHours: string | null;
   categories: MenuCategory[];
 }
 
@@ -110,9 +110,19 @@ export default function RestaurantPage() {
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const totalItems = useCartStore((s) => s.itemCount());
   const totalPrice = useCartStore((s) => s.subtotal());
+  const wouldSwitch = useCartStore((s) => s.wouldSwitchRestaurant);
+  const clearCart = useCartStore((s) => s.clearCart);
+  const cartRestaurantName = useCartStore((s) => s.restaurantName);
+
+  const [switchConfirm, setSwitchConfirm] = useState<MenuItem | null>(null);
 
   const handleAddItem = useCallback(
     (item: MenuItem) => {
+      // Check if adding from a different restaurant
+      if (wouldSwitch(slug)) {
+        setSwitchConfirm(item);
+        return;
+      }
       addCartItem(
         {
           menuItemId: item.id,
@@ -126,8 +136,26 @@ export default function RestaurantPage() {
         restaurant?.name || ""
       );
     },
-    [addCartItem, slug, restaurant?.name]
+    [addCartItem, slug, restaurant?.name, wouldSwitch]
   );
+
+  const confirmSwitchRestaurant = useCallback(() => {
+    if (!switchConfirm) return;
+    clearCart();
+    addCartItem(
+      {
+        menuItemId: switchConfirm.id,
+        name: switchConfirm.name,
+        price: switchConfirm.price,
+        quantity: 1,
+        imageUrl: switchConfirm.imageUrl || undefined,
+        modifiers: [],
+      },
+      slug,
+      restaurant?.name || ""
+    );
+    setSwitchConfirm(null);
+  }, [switchConfirm, clearCart, addCartItem, slug, restaurant?.name]);
 
   const handleRemoveItem = useCallback(
     (menuItemId: string) => {
@@ -245,11 +273,8 @@ export default function RestaurantPage() {
     );
   }
 
-  // Format operating hours
-  const hoursDisplay =
-    typeof restaurant.operatingHours === "object" && restaurant.operatingHours
-      ? "See hours"
-      : "11:00 AM - 9:00 PM";
+  // Compute open/closed status from business hours
+  const openStatus = getOpenStatus(restaurant.businessHours);
 
   // Filter items by search
   const filteredCategories = searchQuery
@@ -362,15 +387,22 @@ export default function RestaurantPage() {
                   )}
                 </div>
 
-                <div className="mt-3 flex items-center gap-1.5 text-sm">
-                  <div
-                    className="h-2 w-2 rounded-full"
-                    style={{ backgroundColor: "#22c55e" }}
-                  />
-                  <span className="text-muted-foreground">
-                    Open now &middot; {hoursDisplay}
-                  </span>
-                </div>
+                {openStatus && (
+                  <div className="mt-3 flex items-center gap-1.5 text-sm">
+                    <div
+                      className="h-2 w-2 rounded-full"
+                      style={{
+                        backgroundColor: openStatus.isOpen ? "#22c55e" : "#ef4444",
+                      }}
+                    />
+                    <span className="text-muted-foreground">
+                      {openStatus.isOpen ? "Open now" : "Closed"}
+                      {openStatus.todayHours && (
+                        <> &middot; {openStatus.todayHours}</>
+                      )}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -488,6 +520,40 @@ export default function RestaurantPage() {
           </div>
         )}
       </div>
+
+      {/* ---- Cross-restaurant cart warning ---- */}
+      {switchConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-2xl animate-fade-in">
+            <h3 className="text-lg font-semibold">Switch restaurant?</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Your cart contains items from{" "}
+              <span className="font-medium text-foreground">
+                {cartRestaurantName}
+              </span>
+              . Adding items from{" "}
+              <span className="font-medium text-foreground">
+                {restaurant?.name}
+              </span>{" "}
+              will clear your current cart.
+            </p>
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={() => setSwitchConfirm(null)}
+                className="flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
+              >
+                Keep cart
+              </button>
+              <button
+                onClick={confirmSwitchRestaurant}
+                className="flex-1 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                Clear &amp; add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ---- Floating Cart Bar ---- */}
       {totalItems > 0 && (

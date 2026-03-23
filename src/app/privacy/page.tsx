@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+  description: "How Fed collects, uses, and protects your personal information.",
+};
 
 export default function PrivacyPage() {
   return (

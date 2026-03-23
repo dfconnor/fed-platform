@@ -18,7 +18,10 @@ const dmSerif = DM_Serif_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Fed — Restaurant Ordering, Without the Middleman",
+  title: {
+    default: "Fed — Restaurant Ordering, Without the Middleman",
+    template: "%s — Fed",
+  },
   description:
     "Order from your favorite local restaurants with zero commission fees. Browse menus, customize your meal, and pay seamlessly. No app needed.",
   keywords: ["restaurant", "ordering", "food", "delivery", "pickup", "Fed", "zero commission"],
