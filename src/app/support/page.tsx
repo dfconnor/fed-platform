@@ -100,6 +100,8 @@ export default function SupportPage() {
                 <button
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
                   className="flex w-full items-center justify-between p-4 text-left text-sm font-medium"
+                  aria-expanded={openFaq === i}
+                  aria-controls={`faq-answer-${i}`}
                 >
                   {faq.q}
                   {openFaq === i ? (
@@ -109,7 +111,7 @@ export default function SupportPage() {
                   )}
                 </button>
                 {openFaq === i && (
-                  <div className="border-t px-4 pb-4 pt-3 text-sm leading-relaxed text-muted-foreground animate-slide-down">
+                  <div id={`faq-answer-${i}`} role="region" className="border-t px-4 pb-4 pt-3 text-sm leading-relaxed text-muted-foreground animate-slide-down">
                     {faq.a}
                   </div>
                 )}

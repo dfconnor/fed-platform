@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Heart, Users, Store, ChevronRight } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "About",
+  description: "Fed exists so restaurants can sell directly to the people who love their food — without giving a third of the check to a tech company.",
+};
 
 const values = [
   {
