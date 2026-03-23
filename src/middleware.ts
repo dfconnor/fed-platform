@@ -27,7 +27,7 @@ export default auth((req) => {
     if (!isLoggedIn) {
       return Response.redirect(new URL("/auth/login", nextUrl));
     }
-    if ((req.auth?.user as { role?: string })?.role !== "admin") {
+    if (req.auth?.user?.role !== "admin") {
       return Response.redirect(new URL("/", nextUrl));
     }
   }
@@ -37,7 +37,7 @@ export default auth((req) => {
     if (!isLoggedIn) {
       return Response.redirect(new URL("/auth/login", nextUrl));
     }
-    const role = (req.auth?.user as { role?: string })?.role;
+    const role = req.auth?.user?.role;
     if (role !== "owner" && role !== "admin") {
       return Response.redirect(new URL("/", nextUrl));
     }

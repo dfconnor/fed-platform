@@ -47,10 +47,31 @@ const faqs = [
 export default function SupportPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    // In production this would send to an API or email service
+    setSubmitting(true);
+
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    const data = {
+      name: formData.get("name") as string,
+      email: formData.get("email") as string,
+      subject: formData.get("subject") as string,
+      message: formData.get("message") as string,
+    };
+
+    // Log the support request (in production this would POST to an API or email service)
+    console.info("[Support Request]", {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Simulate a brief delay for UX feedback
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    setSubmitting(false);
     setSubmitted(true);
   }
 
@@ -126,29 +147,36 @@ export default function SupportPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="name">Name</Label>
-                  <Input id="name" placeholder="Your name" required />
+                  <Input id="name" name="name" placeholder="Your name" required />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="you@example.com" required />
+                  <Input id="email" name="email" type="email" placeholder="you@example.com" required />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="subject">Subject</Label>
-                <Input id="subject" placeholder="What's this about?" required />
+                <Input id="subject" name="subject" placeholder="What's this about?" required />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="message">Message</Label>
                 <Textarea
                   id="message"
+                  name="message"
                   placeholder="Tell us how we can help..."
                   rows={5}
                   required
                 />
               </div>
-              <Button type="submit" className="gap-2">
-                <Send className="h-4 w-4" />
-                Send message
+              <Button type="submit" className="gap-2" disabled={submitting}>
+                {submitting ? (
+                  <>Processing...</>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    Send message
+                  </>
+                )}
               </Button>
             </form>
           )}

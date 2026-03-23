@@ -40,7 +40,7 @@ export async function GET(
     // Access control: allow the order's customer, the restaurant owner, or admins
     const session = await auth();
     const userId = session?.user?.id;
-    const userRole = (session?.user as { role?: string })?.role;
+    const userRole = session?.user?.role;
 
     const isOrderCustomer = order.customerId && order.customerId === userId;
     const isAdmin = userRole === "admin";

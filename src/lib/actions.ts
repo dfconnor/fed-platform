@@ -94,7 +94,7 @@ export async function createRestaurant(formData: {
       return { success: false, error: "Unauthorized" };
     }
 
-    const role = (session.user as { role?: string }).role;
+    const role = session.user.role;
     if (role !== "owner" && role !== "admin") {
       return { success: false, error: "Only owners and admins can create restaurants" };
     }
@@ -179,7 +179,7 @@ export async function updateRestaurant(
       return { success: false, error: "Restaurant not found" };
     }
 
-    const role = (session.user as { role?: string }).role;
+    const role = session.user.role;
     if (restaurant.ownerId !== session.user.id && role !== "admin") {
       return { success: false, error: "You don't have permission to update this restaurant" };
     }
@@ -236,7 +236,7 @@ export async function createMenuCategory(formData: {
       return { success: false, error: "Restaurant not found" };
     }
 
-    const role = (session.user as { role?: string }).role;
+    const role = session.user.role;
     if (restaurant.ownerId !== session.user.id && role !== "admin") {
       return { success: false, error: "Permission denied" };
     }
@@ -299,7 +299,7 @@ export async function updateMenuCategory(
       return { success: false, error: "Category not found" };
     }
 
-    const role = (session.user as { role?: string }).role;
+    const role = session.user.role;
     if (category.restaurant.ownerId !== session.user.id && role !== "admin") {
       return { success: false, error: "Permission denied" };
     }
@@ -336,7 +336,7 @@ export async function deleteMenuCategory(
       return { success: false, error: "Category not found" };
     }
 
-    const role = (session.user as { role?: string }).role;
+    const role = session.user.role;
     if (category.restaurant.ownerId !== session.user.id && role !== "admin") {
       return { success: false, error: "Permission denied" };
     }
@@ -386,7 +386,7 @@ export async function createMenuItem(formData: {
       return { success: false, error: "Category not found" };
     }
 
-    const role = (session.user as { role?: string }).role;
+    const role = session.user.role;
     if (category.restaurant.ownerId !== session.user.id && role !== "admin") {
       return { success: false, error: "Permission denied" };
     }
@@ -467,7 +467,7 @@ export async function updateMenuItem(
       return { success: false, error: "Menu item not found" };
     }
 
-    const role = (session.user as { role?: string }).role;
+    const role = session.user.role;
     if (item.category.restaurant.ownerId !== session.user.id && role !== "admin") {
       return { success: false, error: "Permission denied" };
     }
@@ -506,7 +506,7 @@ export async function deleteMenuItem(itemId: string): Promise<ActionResult> {
       return { success: false, error: "Menu item not found" };
     }
 
-    const role = (session.user as { role?: string }).role;
+    const role = session.user.role;
     if (item.category.restaurant.ownerId !== session.user.id && role !== "admin") {
       return { success: false, error: "Permission denied" };
     }
@@ -561,7 +561,7 @@ export async function updateOrderStatus(
       return { success: false, error: "Order not found" };
     }
 
-    const role = (session.user as { role?: string }).role;
+    const role = session.user.role;
     if (order.restaurant.ownerId !== session.user.id && role !== "admin") {
       return { success: false, error: "Permission denied" };
     }
@@ -633,6 +633,11 @@ export async function createOrder(formData: {
 
     if (!formData.items || formData.items.length === 0) {
       return { success: false, error: "Order must contain at least one item" };
+    }
+
+    // Validate tip amount is not negative
+    if (formData.tipAmount !== undefined && formData.tipAmount < 0) {
+      return { success: false, error: "Tip amount cannot be negative" };
     }
 
     // Fetch menu item prices to calculate totals server-side

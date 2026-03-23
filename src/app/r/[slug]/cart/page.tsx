@@ -136,9 +136,10 @@ export default function CartPage() {
 
   // Calculations — tax and service fee from restaurant settings
   const tax = subtotal * taxRate;
-  const tipAmount = showCustomTip
+  const rawTip = showCustomTip
     ? parseFloat(customTip) || 0
     : subtotal * selectedTip;
+  const tipAmount = Math.max(0, rawTip);
   const discount = promoApplied && promoDiscount
     ? promoDiscount.type === "percentage"
       ? Math.min(subtotal * (promoDiscount.value / 100), subtotal)
@@ -555,7 +556,14 @@ export default function CartPage() {
                       placeholder="Enter tip amount"
                       className="mt-2 text-sm"
                       value={customTip}
-                      onChange={(e) => setCustomTip(e.target.value)}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        if (e.target.value === "" || isNaN(val)) {
+                          setCustomTip(e.target.value);
+                        } else {
+                          setCustomTip(Math.max(0, val).toString());
+                        }
+                      }}
                       autoFocus
                     />
                   )}

@@ -34,6 +34,12 @@ interface CartState {
   updateNotes: (id: string, notes: string) => void;
   clearCart: () => void;
 
+  /**
+   * Returns true if adding an item from this restaurant would require
+   * clearing the cart (i.e. different restaurant with items in cart).
+   */
+  wouldSwitchRestaurant: (restaurantSlug: string) => boolean;
+
   // Computed
   subtotal: () => number;
   itemCount: () => number;
@@ -120,6 +126,15 @@ export const useCartStore = create<CartState>()(
 
       clearCart: () => {
         set({ items: [], restaurantSlug: null, restaurantName: null });
+      },
+
+      wouldSwitchRestaurant: (restaurantSlug: string) => {
+        const state = get();
+        return (
+          state.items.length > 0 &&
+          state.restaurantSlug !== null &&
+          state.restaurantSlug !== restaurantSlug
+        );
       },
 
       subtotal: () => {

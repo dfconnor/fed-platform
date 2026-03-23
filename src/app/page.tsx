@@ -1,42 +1,23 @@
-"use client";
+export const dynamic = "force-dynamic";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
 import Image from "next/image";
+import Link from "next/link";
 import {
-  Search,
   Star,
   Clock,
-  MapPin,
-  ArrowRight,
-  UtensilsCrossed,
   ShoppingBag,
   ChevronRight,
-  Loader2,
   Check,
   QrCode,
+  UtensilsCrossed,
   CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
-
-/* ---------- Types ---------- */
-
-interface RestaurantCard {
-  id: string;
-  slug: string;
-  name: string;
-  cuisine: string;
-  description: string | null;
-  primaryColor: string;
-  estimatedPrepTime: number;
-  avgRating: number;
-  reviewCount: number;
-  itemCount: number;
-}
+import { prisma } from "@/lib/db";
+import { HomeSearch } from "./home-search";
 
 /* ---------- Unsplash food images for restaurant cards ---------- */
 const restaurantImages: Record<string, string> = {
@@ -84,40 +65,76 @@ const steps = [
   },
 ];
 
-/* ---------- Component ---------- */
+/* ---------- Types ---------- */
 
-export default function HomePage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [restaurants, setRestaurants] = useState<RestaurantCard[]>([]);
-  const [loading, setLoading] = useState(true);
+interface RestaurantCard {
+  id: string;
+  slug: string;
+  name: string;
+  cuisine: string;
+  description: string | null;
+  primaryColor: string;
+  estimatedPrepTime: number;
+  avgRating: number;
+  reviewCount: number;
+  itemCount: number;
+}
 
-  useEffect(() => {
-    async function fetchRestaurants() {
-      try {
-        const res = await fetch("/api/restaurants");
-        if (res.ok) {
-          const data = await res.json();
-          setRestaurants(data.restaurants ?? []);
-        }
-      } catch {
-        // silently fail — empty state will show
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchRestaurants();
-  }, []);
+/* ---------- Data fetching ---------- */
 
-  const filtered = searchQuery
-    ? restaurants.filter(
-        (r) =>
-          r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          r.cuisine.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (r.description ?? "")
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase())
-      )
-    : restaurants;
+async function getRestaurants(): Promise<RestaurantCard[]> {
+  try {
+    const restaurants = await prisma.restaurant.findMany({
+      where: { isActive: true },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      include: {
+        categories: {
+          include: {
+            items: {
+              where: { isActive: true },
+              select: { id: true },
+            },
+          },
+        },
+        reviews: {
+          select: { rating: true },
+        },
+      },
+    });
+
+    return restaurants.map((r) => {
+      const avgRating =
+        r.reviews.length > 0
+          ? r.reviews.reduce((sum, rev) => sum + rev.rating, 0) / r.reviews.length
+          : 0;
+      const itemCount = r.categories.reduce(
+        (sum, cat) => sum + cat.items.length,
+        0
+      );
+      return {
+        id: r.id,
+        slug: r.slug,
+        name: r.name,
+        cuisine: r.cuisine,
+        description: r.description,
+        primaryColor: r.primaryColor,
+        estimatedPrepTime: r.estimatedPrepTime,
+        avgRating: Math.round(avgRating * 10) / 10,
+        reviewCount: r.reviews.length,
+        itemCount,
+      };
+    });
+  } catch (error) {
+    console.error("Failed to fetch restaurants:", error);
+    return [];
+  }
+}
+
+/* ---------- Server Component ---------- */
+
+export default async function HomePage() {
+  const restaurants = await getRestaurants();
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -161,37 +178,8 @@ export default function HomePage() {
               </span>
             </div>
 
-            {/* Search */}
-            <div className="mx-auto mt-10 flex max-w-xl items-center gap-2 rounded-2xl bg-white p-2 shadow-2xl">
-              <div className="flex flex-1 items-center gap-2 pl-3">
-                <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Search restaurants or cuisines..."
-                  className="border-0 bg-transparent shadow-none focus-visible:ring-0"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              <Button size="lg" className="rounded-xl px-6">
-                Search
-              </Button>
-            </div>
-
-            {/* Quick cuisine tags */}
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-              {["American", "Japanese", "Italian", "Mexican", "Thai", "Indian"].map(
-                (tag) => (
-                  <button
-                    key={tag}
-                    onClick={() => setSearchQuery(tag)}
-                    className="rounded-full bg-white/15 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/25"
-                  >
-                    {tag}
-                  </button>
-                )
-              )}
-            </div>
+            {/* Search — client component */}
+            <HomeSearch />
           </div>
         </div>
       </section>
@@ -201,108 +189,89 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex items-end justify-between pb-6">
             <div>
-              <h2 className="font-display text-3xl">
-                {searchQuery ? `Results for "${searchQuery}"` : "Restaurants near you"}
-              </h2>
+              <h2 className="font-display text-3xl">Restaurants near you</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                {searchQuery
-                  ? `${filtered.length} restaurant${filtered.length !== 1 ? "s" : ""} found`
-                  : "Order for pickup, dine-in, or delivery"}
+                Order for pickup, dine-in, or delivery
               </p>
             </div>
           </div>
 
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((restaurant, i) => (
-                <Link
-                  key={restaurant.slug}
-                  href={`/r/${restaurant.slug}`}
-                  className="group animate-fade-in"
-                  style={{
-                    animationDelay: `${i * 80}ms`,
-                    animationFillMode: "both",
-                  }}
-                >
-                  <div className="overflow-hidden rounded-2xl border bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
-                    {/* Restaurant image */}
-                    <div className="relative h-48 w-full overflow-hidden">
-                      <Image
-                        src={getRestaurantImage(restaurant.cuisine)}
-                        alt={`${restaurant.name} — ${restaurant.cuisine} cuisine`}
-                        fill
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {restaurants.map((restaurant, i) => (
+              <Link
+                key={restaurant.slug}
+                href={`/r/${restaurant.slug}`}
+                className="group animate-fade-in"
+                style={{
+                  animationDelay: `${i * 80}ms`,
+                  animationFillMode: "both",
+                }}
+              >
+                <div className="overflow-hidden rounded-2xl border bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+                  {/* Restaurant image */}
+                  <div className="relative h-48 w-full overflow-hidden">
+                    <Image
+                      src={getRestaurantImage(restaurant.cuisine)}
+                      alt={`${restaurant.name} — ${restaurant.cuisine} cuisine`}
+                      fill
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
 
-                      {/* Tags overlay */}
-                      <div className="absolute left-3 top-3 flex gap-1.5">
-                        {restaurant.avgRating >= 4.5 && (
-                          <span className="rounded-full bg-white/95 px-2.5 py-0.5 text-xs font-semibold shadow-sm backdrop-blur-sm">
-                            Popular
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Rating overlay */}
-                      {restaurant.reviewCount > 0 && (
-                        <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-lg bg-white/95 px-2.5 py-1 shadow-sm backdrop-blur-sm">
-                          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                          <span className="text-sm font-bold">
-                            {restaurant.avgRating}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            ({restaurant.reviewCount})
-                          </span>
-                        </div>
+                    {/* Tags overlay */}
+                    <div className="absolute left-3 top-3 flex gap-1.5">
+                      {restaurant.avgRating >= 4.5 && (
+                        <span className="rounded-full bg-white/95 px-2.5 py-0.5 text-xs font-semibold shadow-sm backdrop-blur-sm">
+                          Popular
+                        </span>
                       )}
                     </div>
 
-                    {/* Info */}
-                    <div className="p-5">
-                      <h3 className="text-lg font-semibold transition-colors group-hover:text-primary">
-                        {restaurant.name}
-                      </h3>
-                      <p className="mt-0.5 text-sm text-muted-foreground">
-                        {restaurant.cuisine}
-                      </p>
-                      {restaurant.description && (
-                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground line-clamp-2">
-                          {restaurant.description}
-                        </p>
-                      )}
-                      <div className="mt-3 flex items-center gap-4 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3.5 w-3.5" />
-                          {restaurant.estimatedPrepTime}–
-                          {restaurant.estimatedPrepTime + 10} min
+                    {/* Rating overlay */}
+                    {restaurant.reviewCount > 0 && (
+                      <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-lg bg-white/95 px-2.5 py-1 shadow-sm backdrop-blur-sm">
+                        <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                        <span className="text-sm font-bold">
+                          {restaurant.avgRating}
                         </span>
-                        <span className="flex items-center gap-1">
-                          <ShoppingBag className="h-3.5 w-3.5" />
-                          {restaurant.itemCount} items
+                        <span className="text-xs text-muted-foreground">
+                          ({restaurant.reviewCount})
                         </span>
                       </div>
+                    )}
+                  </div>
+
+                  {/* Info */}
+                  <div className="p-5">
+                    <h3 className="text-lg font-semibold transition-colors group-hover:text-primary">
+                      {restaurant.name}
+                    </h3>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      {restaurant.cuisine}
+                    </p>
+                    {restaurant.description && (
+                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground line-clamp-2">
+                        {restaurant.description}
+                      </p>
+                    )}
+                    <div className="mt-3 flex items-center gap-4 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5" />
+                        {restaurant.estimatedPrepTime}–
+                        {restaurant.estimatedPrepTime + 10} min
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <ShoppingBag className="h-3.5 w-3.5" />
+                        {restaurant.itemCount} items
+                      </span>
                     </div>
                   </div>
-                </Link>
-              ))}
-            </div>
-          )}
+                </div>
+              </Link>
+            ))}
+          </div>
 
-          {!loading && filtered.length === 0 && searchQuery && (
-            <div className="py-16 text-center">
-              <p className="text-lg text-muted-foreground">
-                No restaurants match &ldquo;{searchQuery}&rdquo;. Try a
-                different search.
-              </p>
-            </div>
-          )}
-
-          {!loading && restaurants.length === 0 && !searchQuery && (
+          {restaurants.length === 0 && (
             <div className="py-16 text-center">
               <p className="text-lg text-muted-foreground">
                 No restaurants available yet. Check back soon!
