@@ -136,29 +136,16 @@ If you put Prisma imports in `auth.config.ts` or `middleware.ts`, the Edge build
 
 ### Critical (blocks real usage)
 - [ ] **No real payment** — Cart calls `createOrder` which sets `paymentStatus: "pending"` but never collects card details or creates a Stripe PaymentIntent. Selecting "Apple Pay" or "Credit Card" does nothing.
-- [ ] **Dual order creation paths** — Server action (`actions.ts`) and API route (`POST /api/orders`) both create orders with different validation, discount logic, and `paymentStatus` values. Pick one, delete the other.
-
-### High Priority
-- [ ] **Homepage is fully client-rendered** — `"use client"` + `useEffect` fetch. Bad for SEO on a restaurant discovery platform. Should be a server component.
-- [ ] **"Open Now" always green** — Restaurant page hardcodes open status. Never checks `businessHours`.
 
 ### Medium Priority
-- [ ] **Order number collision** — `Math.random()` 6-char code, no retry on unique constraint. Collisions likely around ~47K orders.
-- [ ] **Consolidate `actions.ts`** — ~800 lines duplicating API route logic. Pick one mutation path.
-- [ ] **Password reset** — "Forgot password?" goes to `#`
-- [ ] **Support contact form is a no-op** — Shows "Message sent!" but doesn't actually send anything
-- [ ] **Cart cross-restaurant items** — If user navigates directly to `/r/restaurant-b/cart` with restaurant-a items in store, wrong items display
-- [ ] **Negative tip possible** — Custom tip input accepts negative values despite `min="0"` (parseFloat ignores HTML attributes)
-- [ ] **Password length mismatch** — Login validates >= 6 chars, register validates >= 8, server validates >= 8
+- [ ] **Password reset** — "Forgot password?" goes to `#` (needs email service integration)
+- [ ] **Support form email** — Collects data + logs it, but doesn't send to email/API yet
 
 ### Low Priority
 - [ ] **Float prices** — should be Int (cents) or Decimal for financial precision
-- [ ] **Analytics aggregation** — loads all orders into memory
-- [ ] **Page metadata** — no per-page `<title>` or `metadata` exports (SEO)
-- [ ] **Accessibility** — missing aria-labels on hamburger menu, FAQ toggles, quantity buttons, cuisine filters
+- [ ] **Analytics aggregation** — loads all orders into memory; should use DB-level aggregation
 - [ ] **Unsplash dependency** — no image fallbacks if Unsplash is down
 - [ ] **next-auth beta** — `5.0.0-beta.30` in production
-- [ ] **Dead code** — `src/lib/demo-charts.ts`, unused imports
 - [ ] **Tests** — no test suite
 
 ### Completed (for reference)
@@ -167,6 +154,18 @@ If you put Prisma imports in `auth.config.ts` or `middleware.ts`, the Edge build
 - [x] Cart hardcoded tax/fee (now reads from restaurant API)
 - [x] Cart hardcoded promo code (now validates against server)
 - [x] Registration role selector (removed — backend always sets customer)
+- [x] Homepage SSR — converted from client to server component
+- [x] "Open Now" badge — parses businessHours JSON, shows correct status
+- [x] Order number collision — timestamp+random format (FED-XXXX-XXXX)
+- [x] Cross-restaurant cart — confirmation dialog when switching restaurants
+- [x] Negative tip — clamped to 0 client-side + rejected server-side
+- [x] Password length mismatch — login now validates >= 8 (matches register + server)
+- [x] Legacy NextAuth type casts — using proper types from next-auth.d.ts
+- [x] Dual order creation paths — removed duplicate POST /api/orders
+- [x] POST /api/restaurants unprotected — now requires admin
+- [x] Page metadata — title template + metadata on about, privacy, terms, pricing, support, auth
+- [x] Accessibility — aria-labels on hamburger menu, FAQ accordion
+- [x] Support form — collects FormData with loading state (logs, ready for email)
 - [x] Login broken (fixed to use NextAuth signIn)
 - [x] Cart checkout fake setTimeout (now calls createOrder server action)
 - [x] Order confirmation hardcoded mock data (now fetches real order)
