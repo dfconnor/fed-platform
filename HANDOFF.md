@@ -1,13 +1,39 @@
 # Fed Platform — Handoff Script
 
-**Date:** 2026-03-17
-**Branch:** `claude/sweet-sutherland` (ahead of `main`)
-**PR:** https://github.com/dfconnor/fed-platform/pull/2
-**Live:** https://fed-platform.vercel.app
+**Date:** 2026-03-24
+**Agent:** Antigravity (Google Deepmind)
+**Status:** Sprint Completed & Verified Locally
 
 ---
 
-## What Was Done This Session
+## What Was Done This Session (Antigravity)
+
+### 1. Critical Bug Fixes
+- **Order Confirmation Fix:** Updated `src/middleware.ts` to allow `GET /api/orders/[id]` requests for unauthenticated guests. This fixes the "Order not found" error on the confirmation page after checkout.
+- **Homepage Search Fix:** Converted `HomePage` to correctly handle `searchParams` and updated its Prisma query to filter by restaurant `name` and `cuisine` (case-insensitive).
+- **Support Form Wiring:** Created `submitSupportTicket` server action in `src/lib/actions.ts` and wired it to the `/support` contact form.
+
+### 2. Stripe Integration (Real Payments)
+- **New API Routes:**
+  - `src/app/api/checkout_sessions/route.ts`: Creates a Stripe Checkout Session for an order.
+  - `src/app/api/webhooks/stripe/route.ts`: Handles the `checkout.session.completed` event to update order status to `paid` and `confirmed`.
+- **Cart Redirect:** Updated `handlePlaceOrder` in `src/app/r/[slug]/cart/page.tsx` to redirect the user to Stripe Checkout upon successful order creation.
+- **Demo Fallback:** If `STRIPE_SECRET_KEY` is missing from the environment, the system gracefully fallbacks to direct redirection to the order page (retaining the existing "demo" behavior).
+
+### 3. Documentation & Cleanliness
+- **AGENTS.md:** Updated dev history and cleared off resolved priority items.
+- **Build Verification:** Ran a full `npm run build` locally to ensure no regressions in Type safety or Edge runtime compliance.
+
+---
+
+## Verification Summary (Local)
+- **Search:** Verified filtering by "Japanese" works.
+- **Checkout:** Verified guest checkout redirects correctly to the confirmation page.
+- **Stripe:** Verified API routes resolve and handle missing keys gracefully.
+
+---
+
+## What Was Done This Session (Previous - Phase 6)
 
 ### 1. Design Overhaul (visual identity)
 Replaced the generic AI-template aesthetic with a warm, food-forward design:
