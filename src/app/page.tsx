@@ -82,10 +82,18 @@ interface RestaurantCard {
 
 /* ---------- Data fetching ---------- */
 
-async function getRestaurants(): Promise<RestaurantCard[]> {
+async function getRestaurants(query?: string): Promise<RestaurantCard[]> {
   try {
     const restaurants = await prisma.restaurant.findMany({
-      where: { isActive: true },
+      where: { 
+        isActive: true,
+        ...(query ? {
+          OR: [
+            { name: { contains: query, mode: "insensitive" } },
+            { cuisine: { contains: query, mode: "insensitive" } }
+          ]
+        } : {})
+      },
       orderBy: { createdAt: "desc" },
       take: 20,
       include: {
@@ -133,8 +141,14 @@ async function getRestaurants(): Promise<RestaurantCard[]> {
 
 /* ---------- Server Component ---------- */
 
-export default async function HomePage() {
-  const restaurants = await getRestaurants();
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const resolvedSearchParams = await searchParams;
+  const q = typeof resolvedSearchParams.q === "string" ? resolvedSearchParams.q : undefined;
+  const restaurants = await getRestaurants(q);
 
   return (
     <div className="flex min-h-screen flex-col">

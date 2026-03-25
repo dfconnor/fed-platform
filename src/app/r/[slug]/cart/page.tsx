@@ -186,6 +186,22 @@ export default function CartPage() {
       if (result.success) {
         const orderId = (result.data as { id: string }).id;
         clearCart();
+        
+        try {
+          const res = await fetch("/api/checkout_sessions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ orderId }),
+          });
+          const session = await res.json();
+          if (session.url) {
+            router.push(session.url);
+            return;
+          }
+        } catch (e) {
+          console.error("Stripe redirect failed", e);
+        }
+
         toast({
           title: "Order Placed!",
           description: "Your order has been sent to the kitchen.",

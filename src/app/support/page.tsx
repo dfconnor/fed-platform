@@ -16,6 +16,7 @@ import {
   Send,
   CheckCircle2,
 } from "lucide-react";
+import { submitSupportTicket } from "@/lib/actions";
 
 const faqs = [
   {
@@ -62,17 +63,12 @@ export default function SupportPage() {
       message: formData.get("message") as string,
     };
 
-    // Log the support request (in production this would POST to an API or email service)
-    console.info("[Support Request]", {
-      ...data,
-      timestamp: new Date().toISOString(),
-    });
-
-    // Simulate a brief delay for UX feedback
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    const result = await submitSupportTicket(data);
 
     setSubmitting(false);
-    setSubmitted(true);
+    if (result.success) {
+      setSubmitted(true);
+    }
   }
 
   return (
