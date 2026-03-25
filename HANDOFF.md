@@ -1,168 +1,141 @@
-# Fed Platform — Handoff Script
+# Fed Platform — Handoff for Code Review
 
 **Date:** 2026-03-24
-**Agent:** Antigravity (Google Deepmind)
-**Status:** Sprint Completed & Verified Locally
+**Branch:** `claude/sweet-sutherland` (1 commit ahead of `main`)
+**PR #2:** Merged. New PR needed for remaining doc commit.
+**Live:** https://fed-platform.vercel.app
 
 ---
 
-## What Was Done This Session (Antigravity)
+## Current State
 
-### 1. Critical Bug Fixes
-- **Order Confirmation Fix:** Updated `src/middleware.ts` to allow `GET /api/orders/[id]` requests for unauthenticated guests. This fixes the "Order not found" error on the confirmation page after checkout.
-- **Homepage Search Fix:** Converted `HomePage` to correctly handle `searchParams` and updated its Prisma query to filter by restaurant `name` and `cuisine` (case-insensitive).
-- **Support Form Wiring:** Created `submitSupportTicket` server action in `src/lib/actions.ts` and wired it to the `/support` contact form.
+The branch has **1 uncommitted-to-main commit** (`b216caa`) — documentation updates to AGENTS.md and HANDOFF.md reflecting Phase 7 work. All code changes from Phases 1–7 are already merged to `main` and deployed to production.
 
-### 2. Stripe Integration (Real Payments)
-- **New API Routes:**
-  - `src/app/api/checkout_sessions/route.ts`: Creates a Stripe Checkout Session for an order.
-  - `src/app/api/webhooks/stripe/route.ts`: Handles the `checkout.session.completed` event to update order status to `paid` and `confirmed`.
-- **Cart Redirect:** Updated `handlePlaceOrder` in `src/app/r/[slug]/cart/page.tsx` to redirect the user to Stripe Checkout upon successful order creation.
-- **Demo Fallback:** If `STRIPE_SECRET_KEY` is missing from the environment, the system gracefully fallbacks to direct redirection to the order page (retaining the existing "demo" behavior).
+### What's deployed (Phases 1–7, 21 commits):
 
-### 3. Documentation & Cleanliness
-- **AGENTS.md:** Updated dev history and cleared off resolved priority items.
-- **Build Verification:** Ran a full `npm run build` locally to ensure no regressions in Type safety or Edge runtime compliance.
+| Phase | Agent | Summary |
+|-------|-------|---------|
+| 1 | Claude | Initial scaffold — Next.js 16, Prisma, NextAuth, all pages |
+| 2 | Gemini | SWR hooks, Zod validation, API routes, Zustand cart |
+| 3 | Gemini + Claude | Auth hardening, API protection, edge-safe auth split |
+| 4 | Claude | SQLite → Neon Postgres migration, Vercel deployment |
+| 5 | Claude Code CLI | Cart pricing from DB, promo validation, dine_in fix |
+| 6 | Claude Code Desktop | Design overhaul (warm palette, food photos, DM Serif, new pages), 7 security fixes, shared Navbar/Footer |
+| 7 | Antigravity (Deepmind) | SSR homepage, Open Now badge, Stripe Checkout integration, search fix, support form wiring, accessibility, SEO metadata |
 
 ---
 
-## Verification Summary (Local)
-- **Search:** Verified filtering by "Japanese" works.
-- **Checkout:** Verified guest checkout redirects correctly to the confirmation page.
-- **Stripe:** Verified API routes resolve and handle missing keys gracefully.
+## Architecture Overview
+
+```
+Next.js 16 App Router
+├── Public pages: /, /about, /support, /privacy, /terms, /pricing
+├── Restaurant: /r/[slug] (menu), /r/[slug]/cart, /r/[slug]/order/[orderId]
+├── Auth: /auth/login, /auth/register
+├── Dashboard: /dashboard/* (owner role)
+├── Admin: /admin/* (admin role)
+└── API: 20 routes under /api/*
+
+Database: Neon Postgres (Prisma 7 + PrismaPg adapter)
+Auth: NextAuth v5 beta (JWT, credentials + Google OAuth)
+State: Zustand (cart), SWR (server data)
+Payments: Stripe Checkout (demo fallback when no keys)
+```
+
+### Critical Patterns (DO NOT CHANGE)
+
+1. **Prisma 7 adapter** — `schema.prisma` has `provider = "postgresql"` with NO `url`/`directUrl`. Connection via `PrismaPg({ connectionString })` in `db.ts` and `seed.ts`. `prisma.config.ts` handles `DIRECT_URL` for migrations.
+
+2. **Auth edge split** — `auth.config.ts` (edge-safe, used by middleware) vs `auth.ts` (full with Prisma, used by API routes). Never import `auth.ts` in `middleware.ts`.
+
+3. **Guest checkout** — Order creation via `createOrder` server action in `actions.ts`. Middleware allows `POST /api/orders` and `POST /api/checkout_sessions` without auth.
 
 ---
 
-## What Was Done This Session (Previous - Phase 6)
+## What Works (verified on production)
 
-### 1. Design Overhaul (visual identity)
-Replaced the generic AI-template aesthetic with a warm, food-forward design:
-
-- **Color palette:** Cream backgrounds (`hsl(40 33% 98%)`), tomato-red primary, golden amber accent — no more pure white + gray
-- **Typography:** DM Serif Display for headings (personality), Inter for body (readability)
-- **Food photography:** Unsplash images on hero, restaurant cards, auth pages, pricing, about page, restaurant banners (cuisine-specific: sushi for Japanese, burgers for American, etc.)
-- **Shared components:** Extracted `<Navbar>` (session-aware — shows Dashboard for owners/admins, Sign out when logged in) and `<Footer>` (4-column layout) into reusable components
-- **Auth pages:** Split layout — food photo with testimonial on left, form on right
-- **NextAuth types:** Added `src/types/next-auth.d.ts` for `role` on session/JWT
-
-### 2. New Pages (no more dead links)
-Created 4 production-ready pages replacing all `#` placeholder links:
-
-| Route | Content |
-|-------|---------|
-| `/about` | Company story, values (3 cards), CTA |
-| `/support` | FAQ accordion (6 items), contact form, email |
-| `/privacy` | Privacy policy — what we collect, don't collect, data rights |
-| `/terms` | Terms of service — customer, restaurant, payments, liability |
-
-### 3. Security Fixes (7 issues from code review)
-
-| # | Issue | Fix | File |
-|---|-------|-----|------|
-| 1 | Order IDOR — anyone could read any order | Added ownership check (customer, owner, admin). Guest orders remain viewable by ID. | `api/orders/[id]/route.ts` |
-| 2 | Promo double-increment | Removed outer `usedCount` increment; only transactional one remains | `lib/actions.ts` |
-| 3 | Middleware allowed unauth POST to ALL APIs | Moved guest checkout into `isPublicApiRoute`, simplified to explicit allowlist | `middleware.ts` |
-| 4 | Anyone could create restaurants | Added `requireAdmin()` to `POST /api/restaurants` | `api/restaurants/route.ts` |
-| 5 | Dual order creation paths | Removed duplicate POST handler from `/api/orders`. Cart uses `createOrder` server action exclusively. | `api/orders/route.ts` |
-| 6 | Password validation mismatch | Login now requires >= 8 chars (was 6, server required 8) | `auth/login/page.tsx` |
-| 7 | Promos leaked without ownership | GET with `?code=` is public (cart validation). Full list requires `requireRestaurantOwner`. | `api/promotions/route.ts` |
-
-### 4. Bug Fixes
-- **Cart API response:** Fixed `data.restaurant ?? data` fallback in cart page
-- **Cart discount:** Now uses real `discountType`/`discountValue` from server (was hardcoded 10%)
-- **Guest promo validation:** New `GET /api/promotions/validate` public endpoint
-- **Customer info validation:** Cart requires name + (email or phone) before placing order
+- Homepage with SSR restaurant listing + search
+- Restaurant menu browsing with cuisine-specific food photos
+- Cart with server-validated tax/fees/promos, customer info validation
+- Guest checkout → Stripe Checkout (or demo redirect if no keys)
+- Order confirmation with real-time status polling
+- Cross-restaurant cart switching with confirmation dialog
+- Open Now / Closed badge using businessHours
+- Login/register with NextAuth credentials
+- Owner dashboard: orders, menu CRUD, analytics, promotions, settings
+- Admin panel: users, restaurants, platform settings, analytics
+- All API routes auth-protected (middleware + route-level guards)
+- Real pages for About, Support (with form), Privacy, Terms
+- Page-level metadata for SEO
+- Accessibility: aria-labels on interactive elements
 
 ---
 
-## Verification Results
-
-All pages manually verified in dev server with zero console errors and zero failed network requests:
-
-| Page | Status | Notes |
-|------|--------|-------|
-| `/` (Homepage) | Working | Hero photo, restaurant cards with images, search, cuisine tags, how-it-works, stats, CTA |
-| `/about` | Working | Hero photo, story, values grid, CTA |
-| `/support` | Working | FAQ accordion, contact form |
-| `/privacy` | Working | Full privacy policy |
-| `/terms` | Working | Full terms of service |
-| `/pricing` | Working | Hero, $30 math comparison, plans, competitor table, CTA |
-| `/auth/login` | Working | Split layout, food photo, form, Google OAuth, "Forgot password?" links to /support |
-| `/auth/register` | Working | Split layout, food photo, form, Terms/Privacy links to real pages |
-| `/r/the-golden-fork` | Working | American banner photo, categories, menu items, cart bar |
-| `/r/sakura-sushi` | Working | Japanese banner photo, categories, Popular badges, prices |
-| `/r/the-golden-fork/cart` | Working | Order type, items, customer details, promo, tip, real tax/fees |
-| Dead `#` links | **0 found** | Every link resolves to a real route |
-
-**Build:** `npm run build` passes clean. `tsc --noEmit` zero errors.
-
----
-
-## What's Left (Priority Order)
-
-### Critical (blocks real usage)
-1. **No real payment** — Cart calls `createOrder` but never collects card details. `paymentStatus` is set to `"pending"`. Need Stripe integration or clearly mark demo.
-2. **Homepage is client-rendered** — `"use client"` + `useEffect` fetch. Bad for SEO. Should be a server component with `fetch()` in the component body.
+## Remaining Work (Priority Order)
 
 ### High Priority
-3. **"Open Now" always green** — Never checks `businessHours` JSON field
-4. **Order number collision** — `Math.random()` 6-char, birthday paradox at ~47K orders. Add retry loop or use `cuid2`.
-5. **Support contact form no-op** — Shows success but doesn't send. Wire to Resend, SendGrid, or a simple webhook.
-6. **Password reset** — "Forgot password?" links to /support. Need actual reset flow (email token).
+1. **Password reset** — "Forgot password?" links to /support. Needs email token flow (Resend or similar).
+2. **Stripe webhook verification** — `api/webhooks/stripe/route.ts` exists but needs `STRIPE_WEBHOOK_SECRET` configured in Vercel for production use.
+3. **Google OAuth** — Button shows, needs `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` in Vercel env vars.
 
 ### Medium Priority
-7. **Float prices** — Stored as `Float` dollars. Should be `Int` cents for financial precision. Requires migration + all display formatting.
-8. **Cart cross-restaurant** — Navigating to different restaurant's cart shows wrong items
-9. **Negative tip** — Custom tip accepts negative despite `min="0"`
-10. **Analytics aggregation** — Loads all orders into memory. Needs DB-level aggregation.
-11. **Accessibility** — Missing aria-labels on hamburger, FAQ, quantity buttons
+4. **Float prices** — Stored as `Float` dollars, should be `Int` cents. Requires Prisma migration + formatting changes across all components.
+5. **Order number collision** — `Math.random()` 6-char. Add retry on unique constraint or switch to `cuid2`.
+6. **Support form email delivery** — Wired to server action with logging, but doesn't actually send email. Wire to Resend/SendGrid.
+7. **Analytics aggregation** — Loads all orders into memory. Needs DB-level GROUP BY.
 
 ### Low Priority
-12. **Tests** — No test suite (0% coverage)
-13. **Google OAuth** — Button shows but needs `GOOGLE_CLIENT_ID`/`SECRET` in Vercel env
-14. **Image upload** — Menu items only accept URL, no file upload
-15. **Email notifications** — `console.log` only
-16. **Dead code** — `src/lib/demo-charts.ts`, unused imports
+8. **Tests** — No test suite (0% coverage)
+9. **Image upload** — Menu items accept URL only, no file upload (S3/Cloudinary)
+10. **Email notifications** — `console.log` only
+11. **Dead code** — `src/lib/demo-charts.ts`, unused imports
+12. **next-auth beta** — `5.0.0-beta.30` in production
 
 ---
 
-## Uncommitted Changes
+## Key Files
 
-```
-M src/app/api/orders/route.ts        — Removed duplicate POST handler
-M src/app/api/promotions/route.ts    — Split GET: public code validation vs owner-only list
-M src/app/api/restaurants/route.ts   — Added requireAdmin() to POST
-M src/app/auth/login/page.tsx        — Password validation >= 8 (was 6)
-M src/app/pricing/page.tsx           — Unicode fix for en-dashes
-M src/middleware.ts                   — Tightened public API route allowlist
-```
-
-These 6 files contain the security fixes from this session and need to be committed.
+| File | Purpose |
+|------|---------|
+| `src/middleware.ts` | Route protection — explicit public route allowlist |
+| `src/lib/auth.config.ts` | Edge-safe NextAuth config (middleware) |
+| `src/lib/auth.ts` | Full NextAuth with Prisma (API routes) |
+| `src/lib/api-auth.ts` | `requireAuth`, `requireAdmin`, `requireRestaurantOwner` |
+| `src/lib/db.ts` | Prisma client with PrismaPg adapter |
+| `src/lib/actions.ts` | Server actions (~800 lines, order creation, support ticket) |
+| `src/lib/validations.ts` | Zod schemas for all inputs |
+| `src/lib/store.ts` | Zustand cart (persisted, cross-restaurant switching) |
+| `src/lib/utils.ts` | `generateOrderNumber`, `getOpenStatus`, `formatCurrency` |
+| `src/app/api/checkout_sessions/route.ts` | Stripe Checkout session creation |
+| `src/app/api/webhooks/stripe/route.ts` | Stripe webhook handler |
+| `src/app/home-search.tsx` | Client-side search component (used by SSR homepage) |
+| `src/components/navbar.tsx` | Session-aware navbar with mobile menu |
+| `src/components/footer.tsx` | 4-column footer with real links |
+| `src/types/next-auth.d.ts` | NextAuth type augmentation (role on session/JWT) |
+| `prisma/schema.prisma` | 16 models, PostgreSQL, NO url in datasource |
+| `prisma.config.ts` | Migration config (DIRECT_URL) |
+| `AGENTS.md` | Full development history + remaining work |
 
 ---
 
-## Quick Start for Next Agent
+## Demo Accounts (seeded in Neon)
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | admin@getfed.com | admin123 |
+| Owner | owner@getfed.com | owner123 |
+| Customer | customer@getfed.com | customer123 |
+
+**Restaurants:** The Golden Fork (`/r/the-golden-fork`), Sakura Sushi (`/r/sakura-sushi`)
+
+---
+
+## Commands
 
 ```bash
 cd /Users/dan/Projects/Restaurant_Payment/.claude/worktrees/sweet-sutherland/
-npm run dev          # Dev server on port 3001
-npm run build        # Full build (includes prisma generate + migrate deploy)
-npm run db:seed      # Re-seed demo data in Neon
-
-# Demo accounts
-# Admin:    admin@getfed.com / admin123
-# Owner:    owner@getfed.com / owner123
-# Customer: customer@getfed.com / customer123
+npm run dev              # Dev server
+npm run build            # Full build (prisma generate + migrate deploy + next build)
+npx tsx src/lib/seed.ts  # Re-seed database
+npx prisma studio        # DB browser
 ```
-
-### Key files to know
-- `AGENTS.md` — Full development history + remaining work + critical warnings
-- `src/middleware.ts` — Route protection (Edge-safe, imports auth.config.ts NOT auth.ts)
-- `src/lib/actions.ts` — Server actions (~800 lines, the canonical order creation path)
-- `src/lib/auth.config.ts` — Edge-safe auth (middleware) vs `src/lib/auth.ts` (full, API routes)
-- `prisma/schema.prisma` — 16 models, NO `url` in datasource (uses PrismaPg adapter)
-
-### Don't break these
-1. **Prisma 7 adapter** — No `url`/`directUrl` in schema.prisma. Connection via `PrismaPg`.
-2. **Auth edge split** — Never import `auth.ts` in middleware.
-3. **Guest checkout** — `POST /api/orders` used to be public; now order creation goes through server action. Middleware still allows it for safety.
