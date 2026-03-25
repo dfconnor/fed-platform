@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/db";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_demo", {
-  apiVersion: "2025-02-24.acacia" as any,
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_demo");
 
 export async function POST(req: NextRequest) {
   try {
@@ -61,10 +59,11 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ url: session.url });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Stripe error:", error);
+    const message = error instanceof Error ? error.message : "Failed to create checkout session";
     return NextResponse.json(
-      { error: error.message || "Failed to create checkout session" },
+      { error: message },
       { status: 500 }
     );
   }

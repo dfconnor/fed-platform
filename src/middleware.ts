@@ -22,7 +22,11 @@ export default auth((req) => {
     // Guest checkout — POST to /api/orders only
     (nextUrl.pathname === "/api/orders" && req.method === "POST") ||
     // Guest order confirmation view — GET to /api/orders/[id] (route handler enforces privacy)
-    (nextUrl.pathname.startsWith("/api/orders/") && req.method === "GET");
+    (nextUrl.pathname.startsWith("/api/orders/") && req.method === "GET") ||
+    // Stripe checkout session creation (called after guest order placement)
+    (nextUrl.pathname === "/api/checkout_sessions" && req.method === "POST") ||
+    // Stripe webhooks (called by Stripe servers, verified via signature)
+    nextUrl.pathname.startsWith("/api/webhooks/");
 
   // Protect Admin Routes
   if (isAdminRoute) {

@@ -3,9 +3,7 @@ import Stripe from "stripe";
 import { prisma } from "@/lib/db";
 
 const stripeApiKey = process.env.STRIPE_SECRET_KEY;
-const stripe = stripeApiKey ? new Stripe(stripeApiKey, {
-  apiVersion: "2025-02-24.acacia" as any,
-}) : null;
+const stripe = stripeApiKey ? new Stripe(stripeApiKey) : null;
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
 
@@ -30,8 +28,9 @@ export async function POST(req: NextRequest) {
       } else {
         event = JSON.parse(body);
       }
-    } catch (err: any) {
-      return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      return NextResponse.json({ error: `Webhook Error: ${message}` }, { status: 400 });
     }
 
     if (event.type === "checkout.session.completed") {
@@ -52,7 +51,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ received: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Webhook exception:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
