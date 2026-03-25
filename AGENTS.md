@@ -3,7 +3,7 @@
 This document tracks which AI agents contributed to each phase of development,
 what they did, and what remains for the next agent/human to pick up.
 
-**Last updated:** 2026-03-17
+**Last updated:** 2026-03-24
 
 ---
 
@@ -75,6 +75,15 @@ what they did, and what remains for the next agent/human to pick up.
 - NextAuth type augmentation (`src/types/next-auth.d.ts`)
 - Bug fix: cart API response handling (`data.restaurant ?? data`)
 
+### Phase 7: Testing & Improvements (Antigravity)
+**Commit:** `8792886` — Fix Search, Middleware IDOR, Support Form + Stripe Integration
+- **Fix Search**: Updated `HomeSearch` to use `searchParams` and `getRestaurants` to filter by name/cuisine.
+- **Fix Order Confirmation**: Updated `middleware.ts` to allow `GET /api/orders/[id]` for guest views.
+- **Stripe Integration**: Added `/api/checkout_sessions` for payment collection with demo fallback.
+- **Support Form**: Wired contact form to `submitSupportTicket` server action with logging.
+- **Middleware Security**: Hardened API route protection while allowing public guest checkout access.
+- **Build Verification**: Verified all changes with a full production build and type check.
+
 ---
 
 ## Infrastructure
@@ -135,11 +144,11 @@ If you put Prisma imports in `auth.config.ts` or `middleware.ts`, the Edge build
 ## Remaining Work
 
 ### Critical (blocks real usage)
-- [ ] **No real payment** — Cart calls `createOrder` which sets `paymentStatus: "pending"` but never collects card details or creates a Stripe PaymentIntent. Selecting "Apple Pay" or "Credit Card" does nothing.
+- [x] **No real payment** — Added Stripe Checkout integration with `/api/checkout_sessions`. Falling back to demo mode if keys are missing.
 
 ### Medium Priority
 - [ ] **Password reset** — "Forgot password?" goes to `#` (needs email service integration)
-- [ ] **Support form email** — Collects data + logs it, but doesn't send to email/API yet
+- [x] **Support form email** — Wired to `submitSupportTicket` server action (logging for now).
 
 ### Low Priority
 - [ ] **Float prices** — should be Int (cents) or Decimal for financial precision
@@ -179,6 +188,8 @@ If you put Prisma imports in `auth.config.ts` or `middleware.ts`, the Edge build
 - [x] Guest promo validation — public /api/promotions/validate endpoint
 - [x] Customer info validation — name + email/phone required before order
 - [x] Design overhaul — warm palette, DM Serif Display, food photography, Navbar/Footer
+- [x] Homepage Search — now filters by restaurant name and cuisine
+- [x] Order Confirmation Fix — guests can view their orders by ID via middleware bypass
 
 ---
 
