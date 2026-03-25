@@ -19,8 +19,10 @@ export default auth((req) => {
     // Guest promo validation: GET /api/promotions?code=X (single code lookup is public,
     // full list requires auth — enforced in the route handler)
     (nextUrl.pathname === "/api/promotions" && req.method === "GET" && nextUrl.searchParams.has("code")) ||
-    // Guest checkout — POST to /api/orders only (not subpaths like /api/orders/123)
-    (nextUrl.pathname === "/api/orders" && req.method === "POST");
+    // Guest checkout — POST to /api/orders only
+    (nextUrl.pathname === "/api/orders" && req.method === "POST") ||
+    // Guest order confirmation view — GET to /api/orders/[id] (route handler enforces privacy)
+    (nextUrl.pathname.startsWith("/api/orders/") && req.method === "GET");
 
   // Protect Admin Routes
   if (isAdminRoute) {

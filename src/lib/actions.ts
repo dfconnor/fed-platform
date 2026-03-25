@@ -799,3 +799,26 @@ export async function createOrder(formData: {
     return { success: false, error: "Failed to create order" };
   }
 }
+
+// ============================================
+// Support Actions
+// ============================================
+
+export async function submitSupportTicket(formData: {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}): Promise<ActionResult> {
+  try {
+    console.info("[Support Ticket Submitted]", {
+      ...formData,
+      timestamp: new Date().toISOString(),
+    });
+    
+    return { success: true, data: { status: "received" } };
+  } catch (error) {
+    console.error("Support ticket error:", error);
+    return { success: false, error: "Failed to submit ticket" };
+  }
+}
