@@ -815,7 +815,12 @@ export async function submitSupportTicket(formData: {
       ...formData,
       timestamp: new Date().toISOString(),
     });
-    
+
+    // Send acknowledgment email to the submitter
+    const { sendEmail, supportAcknowledgmentEmail } = await import("@/lib/email");
+    const template = supportAcknowledgmentEmail(formData.name, formData.subject);
+    await sendEmail({ to: formData.email, ...template });
+
     return { success: true, data: { status: "received" } };
   } catch (error) {
     console.error("Support ticket error:", error);

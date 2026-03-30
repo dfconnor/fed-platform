@@ -18,6 +18,13 @@
 import useSWR from "swr";
 import { fetcher } from "@/lib/hooks/fetcher";
 
+/** Chart data point for order-type / payment-method pie charts. */
+export interface ChartSlice {
+  name: string;
+  value: number;
+  color: string;
+}
+
 /** Overview analytics for a single restaurant. */
 export interface AnalyticsOverview {
   totalRevenue: number;
@@ -27,6 +34,9 @@ export interface AnalyticsOverview {
   revenueByDay: { date: string; revenue: number }[];
   ordersByStatus: { status: string; count: number }[];
   topItems: { name: string; quantity: number; revenue: number }[];
+  ordersByHour: { hour: number; orders: number }[];
+  orderTypes: ChartSlice[];
+  paymentMethods: ChartSlice[];
   [key: string]: unknown; // Allow additional fields from the API
 }
 

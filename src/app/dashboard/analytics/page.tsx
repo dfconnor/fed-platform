@@ -42,6 +42,7 @@ import {
   Legend,
 } from "recharts";
 import { useAnalytics } from "@/lib/hooks/use-analytics";
+import type { ChartSlice } from "@/lib/hooks/use-analytics";
 import { useDashboard } from "@/lib/demo-context";
 import {
   analyticsRatingDistribution,
@@ -49,9 +50,10 @@ import {
   analyticsTotalReviews,
 } from "@/lib/demo-charts";
 import type { StatCard } from "@/lib/demo-charts";
+import type { LucideIcon } from "lucide-react";
 
 // Map iconName strings to actual Lucide components
-const iconMap: Record<string, any> = { DollarSign, ShoppingBag, TrendingUp, Users };
+const iconMap: Record<string, LucideIcon> = { DollarSign, ShoppingBag, TrendingUp, Users };
 
 export default function AnalyticsPage() {
   const [dateRange, setDateRange] = useState("14d");
@@ -105,7 +107,7 @@ export default function AnalyticsPage() {
   }));
 
   // Hourly orders data from analytics (if available)
-  const hourlyOrders = (analytics as any)?.ordersByHour ?? [];
+  const hourlyOrders = analytics?.ordersByHour ?? [];
 
   // Top items from analytics
   const topItems = analytics?.topItems ?? [];
@@ -114,10 +116,10 @@ export default function AnalyticsPage() {
     : 1;
 
   // Order type breakdown from analytics (if available)
-  const orderTypeData = (analytics as any)?.orderTypes ?? [];
+  const orderTypeData = analytics?.orderTypes ?? [];
 
   // Payment method breakdown from analytics (if available)
-  const paymentMethodData = (analytics as any)?.paymentMethods ?? [];
+  const paymentMethodData = analytics?.paymentMethods ?? [];
 
   return (
     <div className="space-y-6">
@@ -207,7 +209,7 @@ export default function AnalyticsPage() {
                     borderRadius: "8px",
                     fontSize: "13px",
                   }}
-                  formatter={(value: any, name: any) => [
+                  formatter={(value, name) => [
                     name === "revenue" ? `$${value}` : value,
                     name === "revenue" ? "Revenue" : "Orders",
                   ]}
@@ -335,7 +337,7 @@ export default function AnalyticsPage() {
                         paddingAngle={4}
                         dataKey="value"
                       >
-                        {orderTypeData.map((entry: any, index: number) => (
+                        {orderTypeData.map((entry: ChartSlice, index: number) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
@@ -352,7 +354,7 @@ export default function AnalyticsPage() {
                   </ResponsiveContainer>
                 </div>
                 <div className="flex justify-center gap-4 mt-2">
-                  {orderTypeData.map((item: any) => (
+                  {orderTypeData.map((item: ChartSlice) => (
                     <div key={item.name} className="flex items-center gap-2">
                       <div
                         className="h-3 w-3 rounded-full"
@@ -396,7 +398,7 @@ export default function AnalyticsPage() {
                         paddingAngle={4}
                         dataKey="value"
                       >
-                        {paymentMethodData.map((entry: any, index: number) => (
+                        {paymentMethodData.map((entry: ChartSlice, index: number) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
@@ -413,7 +415,7 @@ export default function AnalyticsPage() {
                   </ResponsiveContainer>
                 </div>
                 <div className="flex flex-wrap justify-center gap-3 mt-2">
-                  {paymentMethodData.map((item: any) => (
+                  {paymentMethodData.map((item: ChartSlice) => (
                     <div key={item.name} className="flex items-center gap-2">
                       <div
                         className="h-3 w-3 rounded-full"

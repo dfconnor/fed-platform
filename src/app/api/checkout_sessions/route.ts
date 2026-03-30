@@ -24,15 +24,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    // Fallback: If no real Stripe key or demo mode, bypass completely
+    // Use request origin for URLs — works in both dev (localhost:3001) and production
+    const baseUrl = new URL(req.url).origin;
+
+    // Fallback: If no real Stripe key, bypass Stripe and redirect to order confirmation
     if (!process.env.STRIPE_SECRET_KEY) {
-      const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-      return NextResponse.json({ 
-        url: `${baseUrl}/r/${order.restaurant.slug}/order/${order.id}` 
+      return NextResponse.json({
+        url: `/r/${order.restaurant.slug}/order/${order.id}`
       });
     }
-
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
