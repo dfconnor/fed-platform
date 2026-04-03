@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { authLimiter, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
+  const { success } = authLimiter.check(getClientIp(req));
+  if (!success) return rateLimitResponse();
+
   try {
     const { token, email, password } = await req.json();
 

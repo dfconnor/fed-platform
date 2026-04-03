@@ -1,11 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/db";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_demo");
+import { checkoutLimiter, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
+  const { success } = checkoutLimiter.check(getClientIp(req));
+  if (!success) return rateLimitResponse();
+
   try {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error("STRIPE_SECRET_KEY is not configured");
+      return NextResponse.json(
+        { error: "Payment processing is not configured" },
+        { status: 503 }
+      );
+    }
+
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
     const body = await req.json();
     const { orderId } = body;
 
@@ -26,13 +38,6 @@ export async function POST(req: NextRequest) {
 
     // Use request origin for URLs — works in both dev (localhost:3001) and production
     const baseUrl = new URL(req.url).origin;
-
-    // Fallback: If no real Stripe key, bypass Stripe and redirect to order confirmation
-    if (!process.env.STRIPE_SECRET_KEY) {
-      return NextResponse.json({
-        url: `/r/${order.restaurant.slug}/order/${order.id}`
-      });
-    }
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],

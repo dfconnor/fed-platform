@@ -41,6 +41,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import type { ValueType } from "recharts/types/component/DefaultTooltipContent";
 import { useAnalytics } from "@/lib/hooks/use-analytics";
 import type { ChartSlice } from "@/lib/hooks/use-analytics";
 import { useDashboard } from "@/lib/demo-context";
@@ -254,7 +255,7 @@ export default function AnalyticsPage() {
                         borderRadius: "8px",
                         fontSize: "13px",
                       }}
-                      formatter={(value: any) => [value, "Orders"]}
+                      formatter={(value: ValueType | undefined) => [value ?? 0, "Orders"]}
                     />
                     <Bar dataKey="orders" radius={[4, 4, 0, 0]} fill="hsl(var(--primary))" />
                   </BarChart>
@@ -348,7 +349,7 @@ export default function AnalyticsPage() {
                           borderRadius: "8px",
                           fontSize: "13px",
                         }}
-                        formatter={(value: any) => [`${value}%`, ""]}
+                        formatter={(value: ValueType | undefined) => [`${value ?? 0}%`, ""]}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -409,7 +410,7 @@ export default function AnalyticsPage() {
                           borderRadius: "8px",
                           fontSize: "13px",
                         }}
-                        formatter={(value: any) => [`${value}%`, ""]}
+                        formatter={(value: ValueType | undefined) => [`${value ?? 0}%`, ""]}
                       />
                     </PieChart>
                   </ResponsiveContainer>

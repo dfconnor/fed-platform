@@ -3,7 +3,7 @@
 This document tracks which AI agents contributed to each phase of development,
 what they did, and what remains for the next agent/human to pick up.
 
-**Last updated:** 2026-03-24
+**Last updated:** 2026-04-03
 
 ---
 
@@ -15,8 +15,7 @@ what they did, and what remains for the next agent/human to pick up.
 - **Stack:** Next.js 16.1.6, TypeScript, Prisma 7.5.0, Neon Postgres, NextAuth v5 beta, Tailwind v4, shadcn/ui, Zustand, SWR, Recharts
 - **Database:** Neon serverless Postgres — project `fed-platform` (aws-us-east-2)
 - **Hosting:** Vercel — auto-deploys from `main` on push
-- **Local path:** `/Users/dan/Projects/Restaurant_Payment/`
-- **Worktree:** `.claude/worktrees/sweet-sutherland/` (on branch `claude/sweet-sutherland`)
+- **Local path:** `/Users/dan/Projects/fed-platform/`
 
 ---
 

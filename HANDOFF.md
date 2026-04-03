@@ -1,15 +1,14 @@
 # Fed Platform — Handoff for Code Review
 
-**Date:** 2026-03-24
-**Branch:** `claude/sweet-sutherland` (1 commit ahead of `main`)
-**PR #2:** Merged. New PR needed for remaining doc commit.
+**Date:** 2026-04-03
+**Branch:** `main` (all work merged via PR #14)
 **Live:** https://fed-platform.vercel.app
 
 ---
 
 ## Current State
 
-The branch has **1 uncommitted-to-main commit** (`b216caa`) — documentation updates to AGENTS.md and HANDOFF.md reflecting Phase 7 work. All code changes from Phases 1–7 are already merged to `main` and deployed to production.
+All Phases 1–7 plus test suite, password reset flow, and Vercel build fix are merged to `main` and deployed to production (PR #14 merged 2026-04-03).
 
 ### What's deployed (Phases 1–7, 21 commits):
 
@@ -22,6 +21,7 @@ The branch has **1 uncommitted-to-main commit** (`b216caa`) — documentation up
 | 5 | Claude Code CLI | Cart pricing from DB, promo validation, dine_in fix |
 | 6 | Claude Code Desktop | Design overhaul (warm palette, food photos, DM Serif, new pages), 7 security fixes, shared Navbar/Footer |
 | 7 | Antigravity (Deepmind) | SSR homepage, Open Now badge, Stripe Checkout integration, search fix, support form wiring, accessibility, SEO metadata |
+| 8 | Claude Code (Opus 4.6) | Password reset flow, test suite (33 tests), Suspense boundary fix, Vercel build fix, type safety improvements |
 
 ---
 
@@ -74,22 +74,24 @@ Payments: Stripe Checkout (demo fallback when no keys)
 ## Remaining Work (Priority Order)
 
 ### High Priority
-1. **Password reset** — "Forgot password?" links to /support. Needs email token flow (Resend or similar).
+1. ~~**Password reset**~~ — ✅ Done (Phase 8). Forgot-password + reset-password pages with token flow.
 2. **Stripe webhook verification** — `api/webhooks/stripe/route.ts` exists but needs `STRIPE_WEBHOOK_SECRET` configured in Vercel for production use.
 3. **Google OAuth** — Button shows, needs `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` in Vercel env vars.
+4. **Stripe demo key fallback** — `checkout_sessions/route.ts` falls back to `"sk_test_demo"` if env var missing. Should throw explicitly.
 
 ### Medium Priority
-4. **Float prices** — Stored as `Float` dollars, should be `Int` cents. Requires Prisma migration + formatting changes across all components.
-5. **Order number collision** — `Math.random()` 6-char. Add retry on unique constraint or switch to `cuid2`.
-6. **Support form email delivery** — Wired to server action with logging, but doesn't actually send email. Wire to Resend/SendGrid.
-7. **Analytics aggregation** — Loads all orders into memory. Needs DB-level GROUP BY.
+5. **Float prices** — Stored as `Float` dollars, should be `Int` cents. Requires Prisma migration + formatting changes across all components.
+6. ~~**Order number collision**~~ — ✅ Fixed (Phase 8). Now uses timestamp + random chars (`FED-XXXX-XXXX`).
+7. **Support form email delivery** — Wired to server action with Resend SDK, but needs `RESEND_API_KEY` in Vercel env.
+8. **Analytics aggregation** — Loads all orders into memory. Needs DB-level GROUP BY.
+9. **Rate limiting** — Added to auth + checkout routes (uncommitted). Needs to be committed and extended to other routes.
 
 ### Low Priority
-8. **Tests** — No test suite (0% coverage)
-9. **Image upload** — Menu items accept URL only, no file upload (S3/Cloudinary)
-10. **Email notifications** — `console.log` only
-11. **Dead code** — `src/lib/demo-charts.ts`, unused imports
-12. **next-auth beta** — `5.0.0-beta.30` in production
+10. ~~**Tests**~~ — ✅ Added (Phase 8). 33 tests via vitest (cart store + utilities). Need API route + integration tests.
+11. **Image upload** — Menu items accept URL only, no file upload (S3/Cloudinary)
+12. **Email notifications** — Resend SDK wired, falls back to console.log without API key
+13. **Dead code** — `src/lib/demo-charts.ts`, unused imports
+14. **next-auth beta** — `5.0.0-beta.30` in production
 
 ---
 
@@ -133,9 +135,9 @@ Payments: Stripe Checkout (demo fallback when no keys)
 ## Commands
 
 ```bash
-cd /Users/dan/Projects/Restaurant_Payment/.claude/worktrees/sweet-sutherland/
+cd /Users/dan/Projects/fed-platform/
 npm run dev              # Dev server
-npm run build            # Full build (prisma generate + migrate deploy + next build)
+npm run build            # Full build (prisma generate + next build)
 npx tsx src/lib/seed.ts  # Re-seed database
 npx prisma studio        # DB browser
 ```

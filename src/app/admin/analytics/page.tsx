@@ -42,6 +42,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import type { ValueType, NameType } from "recharts/types/component/DefaultTooltipContent";
 import { usePlatformAnalytics } from "@/lib/hooks/use-analytics";
 import {
   adminAnalyticsKpis,
@@ -171,8 +172,8 @@ export default function AdminAnalyticsPage() {
                     fontSize: "13px",
                     color: "#e2e8f0",
                   }}
-                  formatter={(value: any, name: any) => [
-                    `$${String(value)}`,
+                  formatter={(value: ValueType | undefined, name: NameType | undefined) => [
+                    `$${String(value ?? 0)}`,
                     name === "revenue" ? "Total GMV" : "Platform Fees",
                   ]}
                 />
@@ -240,8 +241,8 @@ export default function AdminAnalyticsPage() {
                       fontSize: "13px",
                       color: "#e2e8f0",
                     }}
-                    formatter={(value: any) => [
-                      value.toLocaleString(),
+                    formatter={(value: ValueType | undefined) => [
+                      Number(value ?? 0).toLocaleString(),
                       "Orders",
                     ]}
                   />
@@ -392,8 +393,8 @@ export default function AdminAnalyticsPage() {
                       fontSize: "13px",
                       color: "#e2e8f0",
                     }}
-                    formatter={(value: any) => [
-                      `$${(value / 1000).toFixed(1)}k`,
+                    formatter={(value: ValueType | undefined) => [
+                      `$${(Number(value ?? 0) / 1000).toFixed(1)}k`,
                       "",
                     ]}
                   />
@@ -448,8 +449,8 @@ export default function AdminAnalyticsPage() {
                     fontSize: "13px",
                     color: "#e2e8f0",
                   }}
-                  formatter={(value: any, name: any) => [
-                    `$${String(value)}`,
+                  formatter={(value: ValueType | undefined, name: NameType | undefined) => [
+                    `$${String(value ?? 0)}`,
                     name === "platformFees"
                       ? "Platform Fees (2.5%)"
                       : "Net Revenue",
