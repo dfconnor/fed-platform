@@ -10,14 +10,20 @@ export default async function RestaurantLayout({
 }) {
   const { slug } = await params;
 
-  const restaurant = await prisma.restaurant.findUnique({
-    where: { slug },
-    select: {
-      primaryColor: true,
-      secondaryColor: true,
-      accentColor: true,
-    },
-  });
+  let restaurant;
+  try {
+    restaurant = await prisma.restaurant.findUnique({
+      where: { slug },
+      select: {
+        primaryColor: true,
+        secondaryColor: true,
+        accentColor: true,
+      },
+    });
+  } catch (error) {
+    console.error(`Failed to fetch restaurant "${slug}":`, error);
+    notFound();
+  }
 
   if (!restaurant) {
     notFound();
