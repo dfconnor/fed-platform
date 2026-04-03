@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 const stripeApiKey = process.env.STRIPE_SECRET_KEY;
 const stripe = stripeApiKey ? new Stripe(stripeApiKey) : null;
 
-const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
+const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,24 +13,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Stripe not configured" }, { status: 500 });
     }
 
+    if (!endpointSecret) {
+      console.warn("[stripe/webhook] STRIPE_WEBHOOK_SECRET is not set — rejecting request");
+      return NextResponse.json({ error: "Webhook secret not configured" }, { status: 400 });
+    }
+
     const body = await req.text();
     const signature = req.headers.get("stripe-signature");
 
-    if (!signature && endpointSecret) {
-      return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+    if (!signature) {
+      return NextResponse.json({ error: "Missing stripe-signature header" }, { status: 400 });
     }
 
     let event: Stripe.Event;
 
     try {
-      if (endpointSecret && signature) {
-        event = stripe.webhooks.constructEvent(body, signature, endpointSecret);
-      } else {
-        event = JSON.parse(body);
-      }
+      event = stripe.webhooks.constructEvent(body, signature, endpointSecret);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
-      return NextResponse.json({ error: `Webhook Error: ${message}` }, { status: 400 });
+      console.warn("[stripe/webhook] Signature verification failed:", message);
+      return NextResponse.json({ error: `Webhook signature verification failed` }, { status: 400 });
     }
 
     if (event.type === "checkout.session.completed") {
@@ -46,13 +48,13 @@ export async function POST(req: NextRequest) {
             status: "confirmed",
           },
         });
-        console.log(`Order ${orderId} marked as paid`);
+        // Payment confirmed for order
       }
     }
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error("Webhook exception:", error);
+    console.error("[stripe/webhook] Unhandled exception:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

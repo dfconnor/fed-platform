@@ -13,7 +13,9 @@ import { authConfig } from "./auth.config";
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
-  adapter: PrismaAdapter(prisma as any),
+  // Type mismatch: @auth/prisma-adapter expects @prisma/client's PrismaClient,
+  // but this project generates the client to src/generated/prisma (Prisma 7 custom output).
+  adapter: PrismaAdapter(prisma as unknown as Parameters<typeof PrismaAdapter>[0]),
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
