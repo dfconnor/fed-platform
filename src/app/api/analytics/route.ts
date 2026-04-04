@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/api-auth";
+import { Prisma } from "@/generated/prisma/client";
+
+const COLORS = ["#E63946", "#1D3557", "#F4A261", "#2A9D8F", "#E9C46A", "#264653"];
 
 export async function GET(req: NextRequest) {
   try {
@@ -32,179 +35,196 @@ export async function GET(req: NextRequest) {
         startDate.setDate(now.getDate() - 7);
     }
 
-    const where: Record<string, unknown> = {
+    const where: Prisma.OrderWhereInput = {
       createdAt: { gte: startDate },
     };
     if (restaurantId) where.restaurantId = restaurantId;
 
-    if (type === "overview") {
-      const orders = await prisma.order.findMany({
+    if (type === "overview" && restaurantId) {
+      // 1. Core aggregates
+      const stats = await prisma.order.aggregate({
         where,
-        include: {
-          items: {
-            include: {
-              menuItem: { select: { name: true } },
-            },
-          },
-        },
+        _sum: { total: true },
+        _count: { _all: true },
+        _avg: { total: true },
       });
 
-      const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
-      const totalOrders = orders.length;
-      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-      const completedOrders = orders.filter(
-        (o) =>
-          o.status === "completed" ||
-          o.status === "picked_up" ||
-          o.status === "delivered"
-      ).length;
+      const totalRevenue = stats._sum.total || 0;
+      const totalOrders = stats._count._all;
+      const averageOrderValue = stats._avg.total || 0;
 
-      // Revenue by day
-      const revenueByDay: Record<string, number> = {};
-      const ordersByDay: Record<string, number> = {};
-      orders.forEach((o) => {
-        const day = o.createdAt.toISOString().split("T")[0];
-        revenueByDay[day] = (revenueByDay[day] || 0) + o.total;
-        ordersByDay[day] = (ordersByDay[day] || 0) + 1;
+      // 2. Customer count (distinct IDs)
+      const customerResult: { count: bigint }[] = await prisma.$queryRaw`
+        SELECT COUNT(DISTINCT "customerId") as count
+        FROM "Order"
+        WHERE "restaurantId" = ${restaurantId} AND "createdAt" >= ${startDate} AND "customerId" IS NOT NULL
+      `;
+      const totalCustomers = Number(customerResult[0]?.count ?? 0);
+
+      // 3. Completed orders for rate calculation
+      const completedOrders = await prisma.order.count({
+        where: {
+          ...where,
+          status: { in: ["completed", "picked_up", "delivered"] }
+        }
       });
 
-      // Top items
-      const itemCounts: Record<string, { name: string; count: number; revenue: number }> = {};
-      orders.forEach((o) => {
-        o.items.forEach((item) => {
-          const name = item.menuItem.name;
-          if (!itemCounts[name]) {
-            itemCounts[name] = { name, count: 0, revenue: 0 };
-          }
-          itemCounts[name].count += item.quantity;
-          itemCounts[name].revenue += item.totalPrice;
-        });
-      });
-      const topItems = Object.values(itemCounts)
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
+      // 4. Revenue by Day (Raw SQL for proper date grouping)
+      const revenueByDayRaw: { date: string; revenue: number; orders: number }[] = await prisma.$queryRaw`
+        SELECT 
+          TO_CHAR("createdAt", 'YYYY-MM-DD') as date,
+          SUM(total) as revenue,
+          COUNT(*)::int as orders
+        FROM "Order"
+        WHERE "restaurantId" = ${restaurantId} AND "createdAt" >= ${startDate}
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `;
 
-      // Order types
-      const orderTypes: Record<string, number> = {};
-      orders.forEach((o) => {
-        orderTypes[o.orderType] = (orderTypes[o.orderType] || 0) + 1;
+      // 5. Top Items (Raw SQL to join OrderItems and MenuItems)
+      const topItemsRaw: { name: string; quantity: number; revenue: number }[] = await prisma.$queryRaw`
+        SELECT 
+          mi.name, 
+          SUM(oi.quantity)::int as quantity, 
+          SUM(oi."totalPrice") as revenue
+        FROM "OrderItem" oi
+        JOIN "MenuItem" mi ON oi."menuItemId" = mi.id
+        JOIN "Order" o ON oi."orderId" = o.id
+        WHERE o."restaurantId" = ${restaurantId} AND o."createdAt" >= ${startDate}
+        GROUP BY mi.name
+        ORDER BY quantity DESC
+        LIMIT 10
+      `;
+
+      // 6. Order Types (groupBy)
+      const orderTypesRaw = await prisma.order.groupBy({
+        by: ['orderType'],
+        where,
+        _count: { _all: true }
       });
 
-      // Payment methods
-      const paymentMethods: Record<string, number> = {};
-      orders.forEach((o) => {
-        const method = o.paymentMethod || "unknown";
-        paymentMethods[method] = (paymentMethods[method] || 0) + 1;
+      const orderTypes = orderTypesRaw.map((ot, i) => ({
+        name: ot.orderType.charAt(0).toUpperCase() + ot.orderType.slice(1),
+        value: Math.round((ot._count._all / (totalOrders || 1)) * 100),
+        color: COLORS[i % COLORS.length]
+      }));
+
+      // 7. Payment Methods (groupBy)
+      const paymentMethodsRaw = await prisma.order.groupBy({
+        by: ['paymentMethod'],
+        where,
+        _count: { _all: true }
       });
 
-      // Orders by hour
-      const ordersByHour: Record<number, number> = {};
-      orders.forEach((o) => {
-        const hour = o.createdAt.getHours();
-        ordersByHour[hour] = (ordersByHour[hour] || 0) + 1;
+      const paymentMethods = paymentMethodsRaw.map((pm, i) => ({
+        name: (pm.paymentMethod || "Other").charAt(0).toUpperCase() + (pm.paymentMethod || "Other").slice(1),
+        value: Math.round((pm._count._all / (totalOrders || 1)) * 100),
+        color: COLORS[(i + 2) % COLORS.length] // Offset colors slightly
+      }));
+
+      // 8. Orders by Hour (Raw SQL)
+      const ordersByHourRaw: { hour: number; orders: number }[] = await prisma.$queryRaw`
+        SELECT 
+          EXTRACT(HOUR FROM "createdAt")::int as hour,
+          COUNT(*)::int as orders
+        FROM "Order"
+        WHERE "restaurantId" = ${restaurantId} AND "createdAt" >= ${startDate}
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `;
+
+      // Fill in missing hours
+      const ordersByHour = Array.from({ length: 24 }, (_, i) => {
+        const found = ordersByHourRaw.find(h => h.hour === i);
+        return {
+          hour: `${i}:00`,
+          orders: found ? found.orders : 0
+        };
       });
 
       return NextResponse.json({
-        summary: {
-          totalRevenue: Math.round(totalRevenue * 100) / 100,
-          totalOrders,
-          avgOrderValue: Math.round(avgOrderValue * 100) / 100,
-          averageOrderValue: Math.round(avgOrderValue * 100) / 100,
-          completedOrders,
-          completionRate:
-            totalOrders > 0
-              ? Math.round((completedOrders / totalOrders) * 100)
-              : 0,
-        },
-        revenueByDay: Object.entries(revenueByDay)
-          .map(([date, revenue]) => ({
-            date,
-            revenue: Math.round(revenue * 100) / 100,
-            orders: ordersByDay[date] || 0,
-          }))
-          .sort((a, b) => a.date.localeCompare(b.date)),
-        topItems,
-        orderTypes: Object.entries(orderTypes).map(([type, count]) => ({
-          type,
-          count,
+        totalRevenue: Math.round(totalRevenue * 100) / 100,
+        totalOrders,
+        averageOrderValue: Math.round(averageOrderValue * 100) / 100,
+        totalCustomers,
+        completedOrders,
+        completionRate: totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 0,
+        revenueByDay: revenueByDayRaw.map(r => ({
+          ...r,
+          revenue: Math.round(r.revenue * 100) / 100
         })),
-        paymentMethods: Object.entries(paymentMethods).map(
-          ([method, count]) => ({ method, count })
-        ),
-        ordersByHour: Array.from({ length: 24 }, (_, i) => ({
-          hour: i,
-          count: ordersByHour[i] || 0,
+        topItems: topItemsRaw.map(r => ({
+          ...r,
+          revenue: Math.round(r.revenue * 100) / 100
         })),
+        orderTypes,
+        paymentMethods,
+        ordersByHour
       });
     }
 
     if (type === "platform") {
-      const [totalRestaurants, totalUsers, totalOrders, orders] =
-        await Promise.all([
-          prisma.restaurant.count(),
-          prisma.user.count(),
-          prisma.order.count({ where }),
-          prisma.order.findMany({
-            where,
-            select: {
-              total: true,
-              createdAt: true,
-              restaurantId: true,
-              restaurant: { select: { name: true } },
-            },
-          }),
-        ]);
+      const [totalRestaurants, totalUsers, totalOrders, stats] = await Promise.all([
+        prisma.restaurant.count(),
+        prisma.user.count(),
+        prisma.order.count({ where }),
+        prisma.order.aggregate({
+          where,
+          _sum: { total: true }
+        })
+      ]);
 
-      const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
+      const totalRevenue = stats._sum.total || 0;
       const settings = await prisma.platformSettings.findUnique({
         where: { id: "default" },
       });
       const feePercent = settings?.platformFeePercent || 2.5;
       const platformFees = totalRevenue * (feePercent / 100);
 
-      // Revenue by restaurant
-      const revenueByRestaurant: Record<string, { name: string; revenue: number; orders: number }> = {};
-      orders.forEach((o) => {
-        const name = o.restaurant.name;
-        if (!revenueByRestaurant[o.restaurantId]) {
-          revenueByRestaurant[o.restaurantId] = {
-            name,
-            revenue: 0,
-            orders: 0,
-          };
-        }
-        revenueByRestaurant[o.restaurantId].revenue += o.total;
-        revenueByRestaurant[o.restaurantId].orders += 1;
-      });
+      // Revenue by restaurant (Raw SQL)
+      const revenueByRestaurantRaw: { name: string; revenue: number; orders: number }[] = await prisma.$queryRaw`
+        SELECT 
+          r.name,
+          SUM(o.total) as revenue,
+          COUNT(*)::int as orders
+        FROM "Order" o
+        JOIN "Restaurant" r ON o."restaurantId" = r.id
+        WHERE o."createdAt" >= ${startDate}
+        GROUP BY r.name
+        ORDER BY revenue DESC
+        LIMIT 10
+      `;
 
-      // Revenue by day
-      const revenueByDay: Record<string, number> = {};
-      orders.forEach((o) => {
-        const day = o.createdAt.toISOString().split("T")[0];
-        revenueByDay[day] = (revenueByDay[day] || 0) + o.total;
-      });
+      // Revenue by day (Raw SQL)
+      const revenueByDayRaw: { date: string; revenue: number }[] = await prisma.$queryRaw`
+        SELECT 
+          TO_CHAR("createdAt", 'YYYY-MM-DD') as date,
+          SUM(total) as revenue
+        FROM "Order"
+        WHERE "createdAt" >= ${startDate}
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `;
 
       return NextResponse.json({
-        summary: {
-          totalRestaurants,
-          totalUsers,
-          totalOrders,
-          totalRevenue: Math.round(totalRevenue * 100) / 100,
-          platformFees: Math.round(platformFees * 100) / 100,
-          feePercent,
-        },
-        revenueByRestaurant: Object.values(revenueByRestaurant)
-          .sort((a, b) => b.revenue - a.revenue),
-        revenueByDay: Object.entries(revenueByDay)
-          .map(([date, revenue]) => ({
-            date,
-            revenue: Math.round(revenue * 100) / 100,
-          }))
-          .sort((a, b) => a.date.localeCompare(b.date)),
+        totalRestaurants,
+        totalUsers,
+        totalOrders,
+        totalRevenue: Math.round(totalRevenue * 100) / 100,
+        platformFees: Math.round(platformFees * 100) / 100,
+        feePercent,
+        revenueByRestaurant: revenueByRestaurantRaw.map(r => ({
+          ...r,
+          revenue: Math.round(r.revenue * 100) / 100
+        })),
+        revenueByDay: revenueByDayRaw.map(r => ({
+          ...r,
+          revenue: Math.round(r.revenue * 100) / 100
+        }))
       });
     }
 
-    return NextResponse.json({ error: "Invalid type" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid type or missing restaurantId" }, { status: 400 });
   } catch (error) {
     console.error("Error fetching analytics:", error);
     return NextResponse.json(

@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
+import { type Adapter } from "next-auth/adapters";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
@@ -13,9 +14,9 @@ import { authConfig } from "./auth.config";
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
-  // Type mismatch: @auth/prisma-adapter expects @prisma/client's PrismaClient,
-  // but this project generates the client to src/generated/prisma (Prisma 7 custom output).
-  adapter: PrismaAdapter(prisma as unknown as Parameters<typeof PrismaAdapter>[0]),
+  // Nominal type mismatch: @auth/prisma-adapter expects @prisma/client's PrismaClient,
+  // but this project uses a custom-generated client. Structural typing is satisfied by casting to Adapter.
+  adapter: PrismaAdapter(prisma as any) as Adapter,
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",

@@ -725,72 +725,93 @@ export async function createOrder(formData: {
       Date.now() + restaurant.estimatedPrepTime * 60 * 1000
     );
 
-    const order = await prisma.$transaction(async (tx) => {
-      // Re-fetch promo inside transaction if it exists to ensure usedCount is accurate
-      if (formData.promoCode) {
-        const promo = await tx.promotion.findFirst({
-          where: {
-            restaurantId: formData.restaurantId,
-            code: formData.promoCode.toUpperCase(),
-            isActive: true,
-            startsAt: { lte: new Date() },
-            expiresAt: { gte: new Date() },
-          }
-        });
+    // Retry logic for orderNumber collisions
+    let order;
+    let retries = 0;
+    const MAX_RETRIES = 3;
 
-        if (promo && subtotal >= promo.minOrder) {
-          if (promo.maxUses === null || promo.usedCount < promo.maxUses) {
-            // Re-calculate discount based on tx-level promo data
-            discountAmount = promo.discountType === "percentage" 
-              ? subtotal * (promo.discountValue / 100)
-              : promo.discountValue;
-            discountAmount = Math.min(discountAmount, subtotal);
-
-            await tx.promotion.update({
-              where: { id: promo.id },
-              data: { usedCount: { increment: 1 } }
+    while (retries < MAX_RETRIES) {
+      try {
+        order = await prisma.$transaction(async (tx) => {
+          // Re-fetch promo inside transaction if it exists to ensure usedCount is accurate
+          if (formData.promoCode) {
+            const promo = await tx.promotion.findFirst({
+              where: {
+                restaurantId: formData.restaurantId,
+                code: formData.promoCode.toUpperCase(),
+                isActive: true,
+                startsAt: { lte: new Date() },
+                expiresAt: { gte: new Date() },
+              }
             });
+
+            if (promo && subtotal >= promo.minOrder) {
+              if (promo.maxUses === null || promo.usedCount < promo.maxUses) {
+                // Re-calculate discount based on tx-level promo data
+                discountAmount = promo.discountType === "percentage" 
+                  ? subtotal * (promo.discountValue / 100)
+                  : promo.discountValue;
+                discountAmount = Math.min(discountAmount, subtotal);
+
+                await tx.promotion.update({
+                  where: { id: promo.id },
+                  data: { usedCount: { increment: 1 } }
+                });
+              }
+            }
           }
+
+          // Recalculate totals with the tx-level discount
+          const finalTaxAmount = Math.round((subtotal - discountAmount) * restaurant.taxRate * 100) / 100;
+          const finalTotal = Math.round(
+            (subtotal - discountAmount + finalTaxAmount + restaurant.serviceFee + tipAmount) * 100
+          ) / 100;
+
+          return tx.order.create({
+            data: {
+              orderNumber: generateOrderNumber(),
+              restaurantId: formData.restaurantId,
+              customerId: session?.user?.id ?? null,
+              status: "pending",
+              orderType: formData.orderType,
+              tableNumber: formData.tableNumber,
+              subtotal: Math.round(subtotal * 100) / 100,
+              taxAmount: finalTaxAmount,
+              serviceFee: restaurant.serviceFee,
+              tipAmount,
+              discountAmount: Math.round(discountAmount * 100) / 100,
+              total: finalTotal,
+              paymentMethod: formData.paymentMethod ?? "card",
+              paymentStatus: "pending",
+              customerName: formData.customerName ?? session?.user?.name ?? null,
+              customerEmail: formData.customerEmail ?? session?.user?.email ?? null,
+              customerPhone: formData.customerPhone ?? null,
+              customerNotes: formData.customerNotes,
+              addressId: formData.addressId ?? null,
+              estimatedReady,
+              items: {
+                create: orderItems,
+              },
+            },
+            include: {
+              items: { include: { modifiers: true } },
+            },
+          });
+        });
+        break; // Success!
+      } catch (error: any) {
+        // P2002: Unique constraint failed. Check if it's the orderNumber.
+        if (error.code === "P2002" && error.meta?.target?.includes("orderNumber") && retries < MAX_RETRIES - 1) {
+          retries++;
+          continue;
         }
+        throw error;
       }
+    }
 
-      // Recalculate totals with the tx-level discount
-      const finalTaxAmount = Math.round((subtotal - discountAmount) * restaurant.taxRate * 100) / 100;
-      const finalTotal = Math.round(
-        (subtotal - discountAmount + finalTaxAmount + restaurant.serviceFee + tipAmount) * 100
-      ) / 100;
-
-      return tx.order.create({
-        data: {
-          orderNumber: generateOrderNumber(),
-          restaurantId: formData.restaurantId,
-          customerId: session?.user?.id ?? null,
-          status: "pending",
-          orderType: formData.orderType,
-          tableNumber: formData.tableNumber,
-          subtotal: Math.round(subtotal * 100) / 100,
-          taxAmount: finalTaxAmount,
-          serviceFee: restaurant.serviceFee,
-          tipAmount,
-          discountAmount: Math.round(discountAmount * 100) / 100,
-          total: finalTotal,
-          paymentMethod: formData.paymentMethod ?? "card",
-          paymentStatus: "pending",
-          customerName: formData.customerName ?? session?.user?.name ?? null,
-          customerEmail: formData.customerEmail ?? session?.user?.email ?? null,
-          customerPhone: formData.customerPhone ?? null,
-          customerNotes: formData.customerNotes,
-          addressId: formData.addressId ?? null,
-          estimatedReady,
-          items: {
-            create: orderItems,
-          },
-        },
-        include: {
-          items: { include: { modifiers: true } },
-        },
-      });
-    });
+    if (!order) {
+      throw new Error("Failed to create order after multiple attempts");
+    }
 
     revalidatePath("/dashboard");
     return { success: true, data: order };

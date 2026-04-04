@@ -37,9 +37,10 @@ import { useOrders } from "@/lib/hooks/use-orders";
 import { useDashboard } from "@/lib/demo-context";
 import { ORDER_STATUS_CONFIG } from "@/lib/constants";
 import type { StatCard } from "@/lib/demo-charts";
+import type { LucideIcon } from "lucide-react";
 
 // Map iconName strings to actual Lucide components
-const iconMap: Record<string, any> = { ShoppingBag, DollarSign, TrendingUp, Users };
+const iconMap: Record<string, LucideIcon> = { ShoppingBag, DollarSign, TrendingUp, Users };
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -201,7 +202,7 @@ export default function DashboardOverview() {
                       borderRadius: "8px",
                       fontSize: "13px",
                     }}
-                    formatter={(value: any) => [`$${value}`, "Revenue"]}
+                    formatter={(value) => [`$${value}`, "Revenue"]}
                   />
                   <Line
                     type="monotone"
