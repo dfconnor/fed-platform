@@ -45,12 +45,7 @@ import {
 import type { ValueType, NameType } from "recharts/types/component/DefaultTooltipContent";
 import { usePlatformAnalytics } from "@/lib/hooks/use-analytics";
 import {
-  adminAnalyticsKpis,
-  adminPlatformRevenueData,
-  adminOrdersPerRestaurant,
   adminGrowthData,
-  adminTopRestaurants,
-  adminRevenueByRestaurant,
   adminAnalyticsFeeRevenueData,
 } from "@/lib/demo-charts";
 
@@ -62,18 +57,59 @@ const iconMap: Record<string, LucideIcon> = {
   Store,
 };
 
-const platformRevenueData = adminPlatformRevenueData;
-const ordersPerRestaurant = adminOrdersPerRestaurant;
+// Growth metrics + fee revenue chart still use demo data — these come from
+// time-series sources we don't track yet (signups by week, monthly fee history).
 const growthData = adminGrowthData;
-const topRestaurants = adminTopRestaurants;
-const revenueByRestaurant = adminRevenueByRestaurant;
 const feeRevenueData = adminAnalyticsFeeRevenueData;
 
-const maxRevenue = Math.max(...topRestaurants.map((r) => r.revenue));
-
 export default function AdminAnalyticsPage() {
-  const [period, setPeriod] = useState("7m");
+  const [period, setPeriod] = useState("30d");
   const { analytics, isLoading } = usePlatformAnalytics(period);
+
+  // Real data from API (with empty fallbacks for first paint)
+  const topRestaurants = analytics?.topRestaurants ?? [];
+  const ordersPerRestaurant = analytics?.ordersPerRestaurant ?? [];
+  const revenueByRestaurant = analytics?.revenueByRestaurant ?? [];
+  const platformRevenueData = (analytics?.revenueByDay ?? []).map((d) => ({
+    month: d.date,
+    revenue: d.revenue,
+    fees: Math.round(d.revenue * ((analytics?.feePercent ?? 2.5) / 100) * 100) / 100,
+  }));
+  const maxRevenue = topRestaurants.length
+    ? Math.max(...topRestaurants.map((r) => r.revenue))
+    : 1;
+
+  // Live KPI cards from real API data
+  const kpiCards = [
+    {
+      label: "Total GMV",
+      value: `$${(analytics?.totalRevenue ?? 0).toLocaleString()}`,
+      change: "",
+      iconName: "DollarSign",
+      color: "text-purple-400 bg-purple-500/10",
+    },
+    {
+      label: "Total Orders",
+      value: (analytics?.totalOrders ?? 0).toLocaleString(),
+      change: "",
+      iconName: "TrendingUp",
+      color: "text-blue-400 bg-blue-500/10",
+    },
+    {
+      label: "Total Users",
+      value: (analytics?.totalUsers ?? 0).toLocaleString(),
+      change: "",
+      iconName: "Users",
+      color: "text-green-400 bg-green-500/10",
+    },
+    {
+      label: "Restaurants",
+      value: (analytics?.totalRestaurants ?? 0).toLocaleString(),
+      change: "",
+      iconName: "Store",
+      color: "text-orange-400 bg-orange-500/10",
+    },
+  ];
 
   if (isLoading) {
     return (
@@ -102,9 +138,9 @@ export default function AdminAnalyticsPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="bg-slate-800 border-slate-700 text-white">
-              <SelectItem value="3m">Last 3 months</SelectItem>
-              <SelectItem value="7m">Last 7 months</SelectItem>
-              <SelectItem value="12m">Last 12 months</SelectItem>
+              <SelectItem value="7d">Last 7 days</SelectItem>
+              <SelectItem value="30d">Last 30 days</SelectItem>
+              <SelectItem value="90d">Last 90 days</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -112,7 +148,7 @@ export default function AdminAnalyticsPage() {
 
       {/* KPI Row */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {adminAnalyticsKpis.map((kpi) => {
+        {kpiCards.map((kpi) => {
           const Icon = iconMap[kpi.iconName] ?? DollarSign;
           return (
             <Card key={kpi.label} className="border-slate-800 bg-slate-900">
@@ -121,10 +157,12 @@ export default function AdminAnalyticsPage() {
                   <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${kpi.color}`}>
                     <Icon className="h-5 w-5" />
                   </div>
-                  <div className="flex items-center gap-1 text-xs font-medium text-green-400">
-                    <ArrowUpRight className="h-3 w-3" />
-                    {kpi.change}
-                  </div>
+                  {kpi.change && (
+                    <div className="flex items-center gap-1 text-xs font-medium text-green-400">
+                      <ArrowUpRight className="h-3 w-3" />
+                      {kpi.change}
+                    </div>
+                  )}
                 </div>
                 <div className="mt-3">
                   <p className="text-2xl font-bold text-white">{kpi.value}</p>
@@ -322,39 +360,49 @@ export default function AdminAnalyticsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {topRestaurants.map((restaurant, i) => (
-                <div key={restaurant.name} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 text-xs font-bold text-slate-400">
-                        {i + 1}
-                      </span>
-                      <span className="text-sm font-medium text-white">
-                        {restaurant.name}
-                      </span>
-                      <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-[10px]">
-                        {restaurant.growth}
-                      </Badge>
+            {topRestaurants.length === 0 ? (
+              <div className="flex items-center justify-center py-8">
+                <p className="text-sm text-slate-500">
+                  No restaurant data for this period
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {topRestaurants.map((restaurant, i) => (
+                  <div key={restaurant.id} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 text-xs font-bold text-slate-400">
+                          {i + 1}
+                        </span>
+                        <span className="text-sm font-medium text-white">
+                          {restaurant.name}
+                        </span>
+                        {restaurant.growth !== "—" && (
+                          <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-[10px]">
+                            {restaurant.growth}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-slate-400">
+                        <span>{restaurant.orders.toLocaleString()} orders</span>
+                        <span className="font-medium text-white">
+                          ${(restaurant.revenue / 1000).toFixed(1)}k
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-4 text-xs text-slate-400">
-                      <span>{restaurant.orders.toLocaleString()} orders</span>
-                      <span className="font-medium text-white">
-                        ${(restaurant.revenue / 1000).toFixed(1)}k
-                      </span>
+                    <div className="ml-9 h-2 rounded-full bg-slate-800 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all"
+                        style={{
+                          width: `${(restaurant.revenue / maxRevenue) * 100}%`,
+                        }}
+                      />
                     </div>
                   </div>
-                  <div className="ml-9 h-2 rounded-full bg-slate-800 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all"
-                      style={{
-                        width: `${(restaurant.revenue / maxRevenue) * 100}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 

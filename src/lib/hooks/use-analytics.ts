@@ -46,8 +46,18 @@ export interface PlatformAnalytics {
   totalOrders: number;
   totalRestaurants: number;
   totalUsers: number;
+  platformFees: number;
+  feePercent: number;
   revenueByDay: { date: string; revenue: number }[];
-  topRestaurants: { name: string; revenue: number; orders: number }[];
+  topRestaurants: {
+    id: string;
+    name: string;
+    revenue: number;
+    orders: number;
+    growth: string;
+  }[];
+  ordersPerRestaurant: { name: string; orders: number }[];
+  revenueByRestaurant: ChartSlice[];
   [key: string]: unknown;
 }
 

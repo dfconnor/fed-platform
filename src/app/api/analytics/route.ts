@@ -164,6 +164,10 @@ export async function GET(req: NextRequest) {
     }
 
     if (type === "platform") {
+      // Previous-period start date for growth calculation
+      const periodMs = now.getTime() - startDate.getTime();
+      const previousStartDate = new Date(startDate.getTime() - periodMs);
+
       const [totalRestaurants, totalUsers, totalOrders, stats] = await Promise.all([
         prisma.restaurant.count(),
         prisma.user.count(),
@@ -181,23 +185,77 @@ export async function GET(req: NextRequest) {
       const feePercent = settings?.platformFeePercent || 2.5;
       const platformFees = totalRevenue * (feePercent / 100);
 
-      // Revenue by restaurant (Raw SQL)
-      const revenueByRestaurantRaw: { name: string; revenue: number; orders: number }[] = await prisma.$queryRaw`
-        SELECT 
+      // Top restaurants — current period revenue with previous-period growth
+      const topRestaurantsRaw: {
+        id: string;
+        name: string;
+        revenue: number;
+        orders: number;
+        previousRevenue: number;
+      }[] = await prisma.$queryRaw`
+        SELECT
+          r.id,
           r.name,
-          SUM(o.total) as revenue,
-          COUNT(*)::int as orders
-        FROM "Order" o
-        JOIN "Restaurant" r ON o."restaurantId" = r.id
-        WHERE o."createdAt" >= ${startDate}
-        GROUP BY r.name
+          COALESCE(SUM(CASE WHEN o."createdAt" >= ${startDate} THEN o.total ELSE 0 END), 0) as revenue,
+          COALESCE(SUM(CASE WHEN o."createdAt" >= ${startDate} THEN 1 ELSE 0 END), 0)::int as orders,
+          COALESCE(SUM(CASE WHEN o."createdAt" >= ${previousStartDate} AND o."createdAt" < ${startDate} THEN o.total ELSE 0 END), 0) as "previousRevenue"
+        FROM "Restaurant" r
+        LEFT JOIN "Order" o ON o."restaurantId" = r.id
+          AND o."createdAt" >= ${previousStartDate}
+        GROUP BY r.id, r.name
         ORDER BY revenue DESC
         LIMIT 10
       `;
 
+      const topRestaurants = topRestaurantsRaw.map((r) => {
+        const revenue = Math.round(r.revenue * 100) / 100;
+        const previousRevenue = Math.round(r.previousRevenue * 100) / 100;
+        let growth = "—";
+        if (previousRevenue > 0) {
+          const pct = ((revenue - previousRevenue) / previousRevenue) * 100;
+          growth = `${pct >= 0 ? "+" : ""}${pct.toFixed(0)}%`;
+        } else if (revenue > 0) {
+          growth = "new";
+        }
+        return {
+          id: r.id,
+          name: r.name,
+          revenue,
+          orders: r.orders,
+          growth,
+        };
+      });
+
+      // Orders per restaurant — for the horizontal bar chart
+      const ordersPerRestaurant = topRestaurants.map((r) => ({
+        name: r.name,
+        orders: r.orders,
+      }));
+
+      // Revenue breakdown pie — top 5 + "Others"
+      const PIE_COLORS = ["#a855f7", "#3b82f6", "#10b981", "#f59e0b", "#ef4444"];
+      const top5 = topRestaurants.slice(0, 5);
+      const othersRevenue = topRestaurants
+        .slice(5)
+        .reduce((sum, r) => sum + r.revenue, 0);
+      const revenueByRestaurant = top5
+        .map((r, i) => ({
+          name: r.name,
+          value: r.revenue,
+          color: PIE_COLORS[i],
+        }))
+        .filter((r) => r.value > 0);
+      if (othersRevenue > 0) {
+        revenueByRestaurant.push({
+          name: "Others",
+          value: Math.round(othersRevenue * 100) / 100,
+          color: "#6b7280",
+        });
+      }
+
       // Revenue by day (Raw SQL)
       const revenueByDayRaw: { date: string; revenue: number }[] = await prisma.$queryRaw`
-        SELECT 
+        SELECT
           TO_CHAR("createdAt", 'YYYY-MM-DD') as date,
           SUM(total) as revenue
         FROM "Order"
@@ -213,10 +271,9 @@ export async function GET(req: NextRequest) {
         totalRevenue: Math.round(totalRevenue * 100) / 100,
         platformFees: Math.round(platformFees * 100) / 100,
         feePercent,
-        revenueByRestaurant: revenueByRestaurantRaw.map(r => ({
-          ...r,
-          revenue: Math.round(r.revenue * 100) / 100
-        })),
+        topRestaurants,
+        ordersPerRestaurant,
+        revenueByRestaurant,
         revenueByDay: revenueByDayRaw.map(r => ({
           ...r,
           revenue: Math.round(r.revenue * 100) / 100
