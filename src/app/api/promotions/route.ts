@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { createPromotionSchema, updatePromotionSchema } from "@/lib/validations";
 import { requireAuth, requireRestaurantOwner } from "@/lib/api-auth";
+import { promoLimiter, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
 
 // ---------------------------------------------------------------------------
 // GET — List promotions for a restaurant
@@ -83,6 +84,9 @@ export async function GET(req: NextRequest) {
 // POST — Create a new promotion
 // ---------------------------------------------------------------------------
 export async function POST(req: NextRequest) {
+  const limit = promoLimiter.check(getClientIp(req));
+  if (!limit.success) return rateLimitResponse();
+
   try {
     const body = await req.json();
 
@@ -139,6 +143,9 @@ export async function POST(req: NextRequest) {
 // PATCH — Update an existing promotion
 // ---------------------------------------------------------------------------
 export async function PATCH(req: NextRequest) {
+  const limit = promoLimiter.check(getClientIp(req));
+  if (!limit.success) return rateLimitResponse();
+
   try {
     const body = await req.json();
 
@@ -189,6 +196,9 @@ export async function PATCH(req: NextRequest) {
 // DELETE — Remove a promotion
 // ---------------------------------------------------------------------------
 export async function DELETE(req: NextRequest) {
+  const limit = promoLimiter.check(getClientIp(req));
+  if (!limit.success) return rateLimitResponse();
+
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");

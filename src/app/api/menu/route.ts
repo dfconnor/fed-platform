@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { menuPostSchema, menuPatchSchema } from "@/lib/validations";
 import { requireRestaurantOwner } from "@/lib/api-auth";
+import { ownerWriteLimiter, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
 
 // Create menu category, item, or modifier group
 export async function POST(req: NextRequest) {
+  const limit = ownerWriteLimiter.check(getClientIp(req));
+  if (!limit.success) return rateLimitResponse();
+
   try {
     const body = await req.json();
 
@@ -138,6 +142,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const limit = ownerWriteLimiter.check(getClientIp(req));
+  if (!limit.success) return rateLimitResponse();
+
   try {
     const body = await req.json();
 
@@ -196,6 +203,9 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const limit = ownerWriteLimiter.check(getClientIp(req));
+  if (!limit.success) return rateLimitResponse();
+
   try {
     const { searchParams } = new URL(req.url);
     const type = searchParams.get("type");

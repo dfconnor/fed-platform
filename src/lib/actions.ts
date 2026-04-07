@@ -5,6 +5,8 @@ import { auth } from "@/lib/auth";
 import { hash } from "bcryptjs";
 import { generateOrderNumber, slugify } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
+import { orderLimiter } from "@/lib/rate-limit";
 
 // ============================================
 // Types
@@ -617,6 +619,17 @@ export async function createOrder(formData: {
   promoCode?: string;
 }): Promise<ActionResult> {
   try {
+    // Rate limit: 10 orders per IP per minute (guest checkout abuse protection)
+    const hdrs = await headers();
+    const ip =
+      hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      hdrs.get("x-real-ip") ||
+      "unknown";
+    const limit = orderLimiter.check(ip);
+    if (!limit.success) {
+      return { success: false, error: "Too many orders. Please try again in a minute." };
+    }
+
     const session = await auth();
 
     const restaurant = await prisma.restaurant.findUnique({

@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { updatePlatformSettingsSchema } from "@/lib/validations";
 import { requireAdmin } from "@/lib/api-auth";
+import { adminLimiter, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
 
 // ---------------------------------------------------------------------------
 // GET — Fetch the platform settings record
@@ -49,6 +50,9 @@ export async function GET() {
 // PATCH — Update platform settings
 // ---------------------------------------------------------------------------
 export async function PATCH(req: NextRequest) {
+  const limit = adminLimiter.check(getClientIp(req));
+  if (!limit.success) return rateLimitResponse();
+
   try {
     const authResult = await requireAdmin();
     if (authResult.error) return authResult.error;

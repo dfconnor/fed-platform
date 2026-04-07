@@ -58,6 +58,14 @@ export function rateLimit({
 // Shared limiters for different route groups
 export const authLimiter = rateLimit({ maxRequests: 10, windowMs: 60_000 });
 export const checkoutLimiter = rateLimit({ maxRequests: 5, windowMs: 60_000 });
+// Guest order placement (authenticated or not)
+export const orderLimiter = rateLimit({ maxRequests: 10, windowMs: 60_000 });
+// Restaurant owners editing menu / promotions (authenticated)
+export const ownerWriteLimiter = rateLimit({ maxRequests: 20, windowMs: 60_000 });
+// Promo code mutations (lower than ownerWrite — these affect pricing globally)
+export const promoLimiter = rateLimit({ maxRequests: 10, windowMs: 60_000 });
+// Admin actions (lowest — admin volume is small, abuse risk is high)
+export const adminLimiter = rateLimit({ maxRequests: 5, windowMs: 60_000 });
 
 export function rateLimitResponse() {
   return NextResponse.json(

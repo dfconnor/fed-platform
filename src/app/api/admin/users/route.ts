@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { updateUserRoleSchema } from "@/lib/validations";
 import { requireAdmin } from "@/lib/api-auth";
+import { adminLimiter, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
 
 // ---------------------------------------------------------------------------
 // GET — List all users with aggregated stats
@@ -82,6 +83,9 @@ export async function GET(req: NextRequest) {
 // PATCH — Update a user's role
 // ---------------------------------------------------------------------------
 export async function PATCH(req: NextRequest) {
+  const limit = adminLimiter.check(getClientIp(req));
+  if (!limit.success) return rateLimitResponse();
+
   try {
     const authResult = await requireAdmin();
     if (authResult.error) return authResult.error;

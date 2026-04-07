@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/api-auth";
+import { adminLimiter, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
 
 const adminRestaurantPatchSchema = z.object({
   id: z.string().min(1),
@@ -101,6 +102,9 @@ export async function GET(req: NextRequest) {
 // PATCH — Update a restaurant (approve, toggle active, etc.)
 // ---------------------------------------------------------------------------
 export async function PATCH(req: NextRequest) {
+  const limit = adminLimiter.check(getClientIp(req));
+  if (!limit.success) return rateLimitResponse();
+
   try {
     const authResult = await requireAdmin();
     if (authResult.error) return authResult.error;
@@ -136,6 +140,9 @@ export async function PATCH(req: NextRequest) {
 // DELETE — Remove a restaurant (admin reject/remove)
 // ---------------------------------------------------------------------------
 export async function DELETE(req: NextRequest) {
+  const limit = adminLimiter.check(getClientIp(req));
+  if (!limit.success) return rateLimitResponse();
+
   try {
     const authResult = await requireAdmin();
     if (authResult.error) return authResult.error;
