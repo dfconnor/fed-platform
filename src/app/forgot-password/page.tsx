@@ -1,27 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { UtensilsCrossed, ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+const RESEND_COOLDOWN_SECONDS = 30;
+
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  // Countdown for the resend button after a successful send
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
+
+  async function sendReset() {
     setError("");
-
-    if (!email || !/\S+@\S+\.\S+/.test(email)) {
-      setError("Please enter a valid email address");
-      return;
-    }
-
     setLoading(true);
     try {
       const res = await fetch("/api/auth/forgot-password", {
@@ -32,16 +35,33 @@ export default function ForgotPasswordPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        setError(data.error || "Something went wrong");
+        if (res.status === 429) {
+          setError("Too many requests. Please wait a moment before trying again.");
+        } else {
+          setError(data.error || "Something went wrong");
+        }
         return;
       }
 
       setSent(true);
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+
+    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    await sendReset();
   }
 
   return (
@@ -61,11 +81,39 @@ export default function ForgotPasswordPage() {
             <h1 className="font-display text-2xl">Check your email</h1>
             <p className="text-sm text-muted-foreground">
               If an account with that email exists, we&apos;ve sent a password
-              reset link. Check your inbox and spam folder.
+              reset link to{" "}
+              <span className="font-medium text-foreground">{email}</span>.
+              Check your inbox and spam folder.
             </p>
+
+            {error && (
+              <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={sendReset}
+              disabled={loading || resendCooldown > 0}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Resending...
+                </>
+              ) : resendCooldown > 0 ? (
+                `Resend email in ${resendCooldown}s`
+              ) : (
+                "Resend email"
+              )}
+            </Button>
+
             <Link
               href="/auth/login"
-              className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+              className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               Back to sign in
