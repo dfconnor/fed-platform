@@ -43,11 +43,11 @@ import {
   Legend,
 } from "recharts";
 import type { ValueType, NameType } from "recharts/types/component/DefaultTooltipContent";
-import { usePlatformAnalytics } from "@/lib/hooks/use-analytics";
 import {
-  adminGrowthData,
-  adminAnalyticsFeeRevenueData,
-} from "@/lib/demo-charts";
+  usePlatformAnalytics,
+  useSignupAnalytics,
+  useFeeAnalytics,
+} from "@/lib/hooks/use-analytics";
 
 // --- Icon map: resolve iconName strings from mock-data to Lucide components ---
 const iconMap: Record<string, LucideIcon> = {
@@ -57,14 +57,54 @@ const iconMap: Record<string, LucideIcon> = {
   Store,
 };
 
-// Growth metrics + fee revenue chart still use demo data — these come from
-// time-series sources we don't track yet (signups by week, monthly fee history).
-const growthData = adminGrowthData;
-const feeRevenueData = adminAnalyticsFeeRevenueData;
+// Map UI period strings to the time-series API period strings.
+// Platform analytics uses days (7d/30d/90d) but signups + fees use weeks
+// for the broader historical view.
+const PERIOD_TO_WEEKS: Record<string, string> = {
+  "4w": "4w",
+  "12w": "12w",
+  "26w": "26w",
+  "52w": "52w",
+};
+
+// Map historical period to a roughly-equivalent platform period (days).
+const PERIOD_TO_DAYS: Record<string, string> = {
+  "4w": "30d",
+  "12w": "90d",
+  "26w": "90d",
+  "52w": "90d",
+};
 
 export default function AdminAnalyticsPage() {
-  const [period, setPeriod] = useState("30d");
-  const { analytics, isLoading } = usePlatformAnalytics(period);
+  const [period, setPeriod] = useState("12w");
+  const platformPeriod = PERIOD_TO_DAYS[period] ?? "30d";
+  const seriesPeriod = PERIOD_TO_WEEKS[period] ?? "12w";
+
+  const { analytics, isLoading } = usePlatformAnalytics(platformPeriod);
+  const { data: signupRows, isLoading: signupsLoading } =
+    useSignupAnalytics(seriesPeriod);
+  const { data: feeRows, isLoading: feesLoading } = useFeeAnalytics(seriesPeriod);
+
+  // Format weekly signup rows for the line chart (label = "MMM d")
+  const growthData = (signupRows ?? []).map((row) => {
+    const d = new Date(row.weekStart);
+    const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return {
+      week: label,
+      newUsers: row.newUsers,
+      newRestaurants: row.newRestaurants,
+    };
+  });
+
+  // Format monthly fee rows for the bar chart (label = "MMM")
+  const feeRevenueData = (feeRows ?? []).map((row) => {
+    const d = new Date(row.monthStart);
+    return {
+      month: d.toLocaleDateString("en-US", { month: "short" }),
+      platformFees: row.platformFees,
+      net: row.net,
+    };
+  });
 
   // Real data from API (with empty fallbacks for first paint)
   const topRestaurants = analytics?.topRestaurants ?? [];
@@ -138,9 +178,10 @@ export default function AdminAnalyticsPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="bg-slate-800 border-slate-700 text-white">
-              <SelectItem value="7d">Last 7 days</SelectItem>
-              <SelectItem value="30d">Last 30 days</SelectItem>
-              <SelectItem value="90d">Last 90 days</SelectItem>
+              <SelectItem value="4w">Last 4 weeks</SelectItem>
+              <SelectItem value="12w">Last 12 weeks</SelectItem>
+              <SelectItem value="26w">Last 26 weeks</SelectItem>
+              <SelectItem value="52w">Last 52 weeks</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -307,42 +348,48 @@ export default function AdminAnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="h-[280px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={growthData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                  <XAxis
-                    dataKey="week"
-                    tick={{ fill: "#94a3b8", fontSize: 11 }}
-                  />
-                  <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1e293b",
-                      border: "1px solid #334155",
-                      borderRadius: "8px",
-                      fontSize: "13px",
-                      color: "#e2e8f0",
-                    }}
-                  />
-                  <Legend wrapperStyle={{ color: "#94a3b8" }} />
-                  <Line
-                    type="monotone"
-                    dataKey="newUsers"
-                    name="New Users"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    dot={{ fill: "#3b82f6", r: 3 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="newRestaurants"
-                    name="New Restaurants"
-                    stroke="#a855f7"
-                    strokeWidth={2}
-                    dot={{ fill: "#a855f7", r: 3 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              {signupsLoading ? (
+                <div className="flex h-full items-center justify-center">
+                  <div className="h-full w-full animate-pulse rounded-md bg-slate-800/40" />
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={growthData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                    <XAxis
+                      dataKey="week"
+                      tick={{ fill: "#94a3b8", fontSize: 11 }}
+                    />
+                    <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#1e293b",
+                        border: "1px solid #334155",
+                        borderRadius: "8px",
+                        fontSize: "13px",
+                        color: "#e2e8f0",
+                      }}
+                    />
+                    <Legend wrapperStyle={{ color: "#94a3b8" }} />
+                    <Line
+                      type="monotone"
+                      dataKey="newUsers"
+                      name="New Users"
+                      stroke="#3b82f6"
+                      strokeWidth={2}
+                      dot={{ fill: "#3b82f6", r: 3 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="newRestaurants"
+                      name="New Restaurants"
+                      stroke="#a855f7"
+                      strokeWidth={2}
+                      dot={{ fill: "#a855f7", r: 3 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -478,52 +525,58 @@ export default function AdminAnalyticsPage() {
         </CardHeader>
         <CardContent>
           <div className="h-[280px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={feeRevenueData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis
-                  dataKey="month"
-                  tick={{ fill: "#94a3b8", fontSize: 12 }}
-                />
-                <YAxis
-                  tick={{ fill: "#94a3b8", fontSize: 12 }}
-                  tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1e293b",
-                    border: "1px solid #334155",
-                    borderRadius: "8px",
-                    fontSize: "13px",
-                    color: "#e2e8f0",
-                  }}
-                  formatter={(value: ValueType | undefined, name: NameType | undefined) => [
-                    `$${String(value ?? 0)}`,
-                    name === "platformFees"
-                      ? "Platform Fees (2.5%)"
-                      : "Net Revenue",
-                  ]}
-                />
-                <Legend
-                  formatter={(value) =>
-                    value === "platformFees"
-                      ? "Platform Fees"
-                      : "Net Revenue"
-                  }
-                  wrapperStyle={{ color: "#94a3b8" }}
-                />
-                <Bar
-                  dataKey="platformFees"
-                  fill="#a855f7"
-                  radius={[4, 4, 0, 0]}
-                />
-                <Bar
-                  dataKey="net"
-                  fill="#10b981"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
+            {feesLoading ? (
+              <div className="flex h-full items-center justify-center">
+                <div className="h-full w-full animate-pulse rounded-md bg-slate-800/40" />
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={feeRevenueData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fill: "#94a3b8", fontSize: 12 }}
+                  />
+                  <YAxis
+                    tick={{ fill: "#94a3b8", fontSize: 12 }}
+                    tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#1e293b",
+                      border: "1px solid #334155",
+                      borderRadius: "8px",
+                      fontSize: "13px",
+                      color: "#e2e8f0",
+                    }}
+                    formatter={(value: ValueType | undefined, name: NameType | undefined) => [
+                      `$${String(value ?? 0)}`,
+                      name === "platformFees"
+                        ? "Platform Fees"
+                        : "Net Revenue",
+                    ]}
+                  />
+                  <Legend
+                    formatter={(value) =>
+                      value === "platformFees"
+                        ? "Platform Fees"
+                        : "Net Revenue"
+                    }
+                    wrapperStyle={{ color: "#94a3b8" }}
+                  />
+                  <Bar
+                    dataKey="platformFees"
+                    fill="#a855f7"
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar
+                    dataKey="net"
+                    fill="#10b981"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </CardContent>
       </Card>

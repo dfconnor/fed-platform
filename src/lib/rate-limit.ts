@@ -66,6 +66,8 @@ export const ownerWriteLimiter = rateLimit({ maxRequests: 20, windowMs: 60_000 }
 export const promoLimiter = rateLimit({ maxRequests: 10, windowMs: 60_000 });
 // Admin actions (lowest — admin volume is small, abuse risk is high)
 export const adminLimiter = rateLimit({ maxRequests: 5, windowMs: 60_000 });
+// Public health/uptime checks — lenient but bounded
+export const healthLimiter = rateLimit({ maxRequests: 60, windowMs: 60_000 });
 
 export function rateLimitResponse() {
   return NextResponse.json(

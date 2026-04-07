@@ -117,3 +117,51 @@ export function usePlatformAnalytics(period: string = "30d") {
     mutate,
   };
 }
+
+/** Weekly signup time-series for the admin growth chart. */
+export interface SignupAnalytics {
+  data: { weekStart: string; newUsers: number; newRestaurants: number }[];
+}
+
+/**
+ * Fetch weekly signup counts (users + restaurants) for the admin growth chart.
+ *
+ * @param period - "4w" | "12w" | "26w" | "52w" (default "12w")
+ */
+export function useSignupAnalytics(period: string = "12w") {
+  const { data, error, isLoading, mutate } = useSWR<SignupAnalytics>(
+    `/api/admin/analytics/signups?period=${period}`,
+    fetcher
+  );
+  return { data: data?.data ?? null, isLoading, error, mutate };
+}
+
+/** Monthly fee revenue time-series for the admin platform fees chart. */
+export interface FeeAnalytics {
+  data: {
+    monthStart: string;
+    gmv: number;
+    platformFees: number;
+    net: number;
+  }[];
+  feePercent: number;
+}
+
+/**
+ * Fetch monthly platform fee revenue for the admin fees chart.
+ *
+ * @param period - "4w" | "12w" | "26w" | "52w" (default "12w")
+ */
+export function useFeeAnalytics(period: string = "12w") {
+  const { data, error, isLoading, mutate } = useSWR<FeeAnalytics>(
+    `/api/admin/analytics/fees?period=${period}`,
+    fetcher
+  );
+  return {
+    data: data?.data ?? null,
+    feePercent: data?.feePercent ?? 2.5,
+    isLoading,
+    error,
+    mutate,
+  };
+}
