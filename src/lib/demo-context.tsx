@@ -21,8 +21,9 @@
 
 "use client";
 
-import React, { createContext, useContext, type ReactNode } from "react";
+import React, { createContext, useContext, useEffect, type ReactNode } from "react";
 import useSWR from "swr";
+import { useRouter } from "next/navigation";
 import { fetcher } from "@/lib/hooks/fetcher";
 import { useSession } from "next-auth/react";
 
@@ -38,7 +39,7 @@ export const DEMO_RESTAURANT_SLUG = "the-golden-fork";
 // ============================================
 
 interface DashboardContextValue {
-  /** Prisma restaurant ID (cuid) */
+  /** Prisma restaurant ID (cuid) — empty string if user has no restaurant */
   restaurantId: string;
   /** URL-safe slug */
   slug: string;
@@ -50,6 +51,8 @@ interface DashboardContextValue {
   ownerName: string;
   /** True while the initial fetch is in progress */
   isLoading: boolean;
+  /** True when fetch is complete and the user owns no restaurant */
+  hasNoRestaurant: boolean;
   /** Error from fetch, if any */
   error: Error | undefined;
 }
@@ -61,8 +64,9 @@ const DashboardContext = createContext<DashboardContextValue | null>(null);
  * It fetches the current user's restaurant and shares data with all pages.
  */
 export function DashboardProvider({ children }: { children: ReactNode }) {
-  const { data: session } = useSession();
-  
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
   // In a real app, you might have a "current restaurant" in the URL or session.
   // For now, we'll fetch the first restaurant owned by the user.
   const { data, error, isLoading } = useSWR<{
@@ -76,14 +80,35 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   }>(session?.user?.id ? `/api/restaurants?ownerId=${session.user.id}` : null, fetcher);
 
   const restaurant = data?.restaurants?.[0];
+  const sessionLoading = status === "loading";
+  const fetchInFlight = isLoading || (session?.user?.id && data === undefined && !error);
+  const fetchComplete = !sessionLoading && !fetchInFlight;
+  const hasNoRestaurant = fetchComplete && !restaurant;
+
+  // Admins land on /dashboard with no restaurant — send them to /admin instead.
+  useEffect(() => {
+    if (hasNoRestaurant && session?.user?.role === "admin") {
+      router.replace("/admin");
+    }
+  }, [hasNoRestaurant, session?.user?.role, router]);
+
+  // Display name: real name → "No restaurant assigned" once fetch is done → "Loading..." while pending
+  let restaurantName = "Loading...";
+  if (restaurant) {
+    restaurantName = restaurant.name;
+  } else if (hasNoRestaurant) {
+    restaurantName =
+      session?.user?.role === "admin" ? "Platform Admin" : "No restaurant assigned";
+  }
 
   const value: DashboardContextValue = {
     restaurantId: restaurant?.id ?? "",
     slug: restaurant?.slug ?? "",
-    restaurantName: restaurant?.name ?? "Loading...",
+    restaurantName,
     restaurantDescription: restaurant?.description ?? "",
     ownerName: restaurant?.owner?.name ?? session?.user?.name ?? "Owner",
-    isLoading: isLoading || !session,
+    isLoading: !fetchComplete,
+    hasNoRestaurant,
     error,
   };
 

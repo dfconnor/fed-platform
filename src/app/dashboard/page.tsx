@@ -52,16 +52,34 @@ function timeAgo(dateStr: string) {
 }
 
 export default function DashboardOverview() {
-  const { restaurantId, ownerName } = useDashboard();
+  const { restaurantId, ownerName, isLoading: contextLoading, hasNoRestaurant } = useDashboard();
   const { analytics, isLoading: analyticsLoading } = useAnalytics(restaurantId, "7d");
   const { orders: allOrders, isLoading: ordersLoading } = useOrders(restaurantId);
 
-  const isLoading = analyticsLoading || ordersLoading;
+  const isLoading = contextLoading || (restaurantId && (analyticsLoading || ordersLoading));
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  if (hasNoRestaurant) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] text-center px-4">
+        <div className="rounded-full bg-muted p-4 mb-4">
+          <ClipboardList className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h1 className="text-2xl font-bold mb-2">No restaurant assigned</h1>
+        <p className="text-muted-foreground mb-6 max-w-md">
+          Your account isn&apos;t linked to a restaurant yet. List your
+          restaurant on Fed to start managing orders, menus, and analytics.
+        </p>
+        <Button asChild>
+          <Link href="/pricing">List your restaurant</Link>
+        </Button>
       </div>
     );
   }
