@@ -37,8 +37,11 @@ Object.defineProperty(globalThis, "localStorage", {
   configurable: true,
 });
 
-Object.defineProperty(window, "localStorage", {
-  value: localStoragePolyfill,
-  writable: true,
-  configurable: true,
-});
+// jsdom env only — node env tests (API routes) don't have a `window`.
+if (typeof window !== "undefined") {
+  Object.defineProperty(window, "localStorage", {
+    value: localStoragePolyfill,
+    writable: true,
+    configurable: true,
+  });
+}
