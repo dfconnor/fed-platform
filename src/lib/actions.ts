@@ -813,6 +813,21 @@ export async function createOrder(formData: {
       throw new Error("Failed to create order after multiple attempts");
     }
 
+    // Fire-and-forget order confirmation email (don't block on email failure)
+    const recipientEmail = order.customerEmail;
+    if (recipientEmail) {
+      try {
+        const { sendEmail, orderConfirmationEmail } = await import("@/lib/email");
+        const template = orderConfirmationEmail(
+          order.orderNumber,
+          `$${order.total.toFixed(2)}`
+        );
+        await sendEmail({ to: recipientEmail, ...template });
+      } catch (emailErr) {
+        console.error("Order confirmation email failed:", emailErr);
+      }
+    }
+
     revalidatePath("/dashboard");
     return { success: true, data: order };
   } catch (error) {
