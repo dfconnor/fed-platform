@@ -68,6 +68,38 @@ Payments: Stripe Checkout (demo fallback when no keys)
 - Real pages for About, Support (with form), Privacy, Terms
 - Page-level metadata for SEO
 - Accessibility: aria-labels on interactive elements
+- Health check at `/api/health` for uptime monitors
+
+---
+
+## Health Check
+
+`GET /api/health` is a public, rate-limited (60/min) endpoint that
+verifies the database is reachable.
+
+**200 — healthy**
+```json
+{
+  "status": "ok",
+  "db": "connected",
+  "version": "1.0.0",
+  "timestamp": "2026-04-07T12:34:56.789Z"
+}
+```
+
+**503 — DB unreachable**
+```json
+{
+  "status": "error",
+  "db": "disconnected",
+  "error": "ECONNREFUSED",
+  "version": "1.0.0",
+  "timestamp": "2026-04-07T12:34:56.789Z"
+}
+```
+
+Configure your uptime monitor (Better Uptime, UptimeRobot, Pingdom, etc.)
+to hit `https://fed-platform.vercel.app/api/health` and alert on non-200.
 
 ---
 

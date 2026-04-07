@@ -26,7 +26,9 @@ export default auth((req) => {
     // Stripe checkout session creation (called after guest order placement)
     (nextUrl.pathname === "/api/checkout_sessions" && req.method === "POST") ||
     // Stripe webhooks (called by Stripe servers, verified via signature)
-    nextUrl.pathname.startsWith("/api/webhooks/");
+    nextUrl.pathname.startsWith("/api/webhooks/") ||
+    // Health check (uptime monitors) — rate-limited at the route level
+    (nextUrl.pathname === "/api/health" && req.method === "GET");
 
   // Protect Admin Routes
   if (isAdminRoute) {
