@@ -122,12 +122,12 @@ export default function OrderConfirmationPage() {
     fetchOrder();
   }, [orderId]);
 
-  // Poll for status updates every 15s
+  // Live status updates: prefer SSE, fall back to 5s polling
   useEffect(() => {
     if (!order || order.status === "completed" || order.status === "delivered")
       return;
 
-    const interval = setInterval(async () => {
+    const refetch = async () => {
       try {
         const res = await fetch(`/api/orders/${orderId}`);
         if (res.ok) {
@@ -135,11 +135,42 @@ export default function OrderConfirmationPage() {
           setOrder(data.order);
         }
       } catch {
-        // Silently continue polling
+        // Silently retry on next tick
       }
-    }, 15000);
+    };
 
-    return () => clearInterval(interval);
+    // Polling fallback for environments without EventSource (or if SSE fails)
+    let pollInterval: ReturnType<typeof setInterval> | null = null;
+    const startPolling = () => {
+      if (pollInterval) return;
+      pollInterval = setInterval(refetch, 5000);
+    };
+
+    if (typeof window === "undefined" || typeof EventSource === "undefined") {
+      startPolling();
+      return () => {
+        if (pollInterval) clearInterval(pollInterval);
+      };
+    }
+
+    const es = new EventSource(`/api/orders/${orderId}/stream`);
+    es.addEventListener("status", () => {
+      // Status changed on the server — refetch the full order for fresh data
+      refetch();
+    });
+    es.addEventListener("done", () => {
+      es.close();
+    });
+    es.onerror = () => {
+      // Drop the SSE connection and fall back to polling
+      es.close();
+      startPolling();
+    };
+
+    return () => {
+      es.close();
+      if (pollInterval) clearInterval(pollInterval);
+    };
   }, [orderId, order?.status]);
 
   if (loading) {
